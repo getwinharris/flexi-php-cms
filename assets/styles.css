@@ -213,12 +213,13 @@ nav ul li a:hover {
 
 /* Hero Section */
 .hero {
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     background: radial-gradient(circle at 70% 30%, #f0f7ff 0%, #ffffff 60%);
-    padding-top: var(--header-height);
-    overflow: hidden;
+    padding-top: calc(var(--header-height) + 40px);
+    padding-bottom: 80px;
+    overflow-x: hidden;
 }
 
 .hero-content {
@@ -296,7 +297,7 @@ nav ul li a:hover {
 }
 
 .hero-swiper .swiper-slide {
-    height: 400px;
+    height: clamp(200px, 50vw, 400px);
 }
 
 .hero-swiper .swiper-slide img {
