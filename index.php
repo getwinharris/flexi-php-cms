@@ -31,6 +31,7 @@ $problems = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flexi Feet | Custom Diabetic & Orthopaedic Footwear Malaysia</title>
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
     <meta name="description" content="Flexi Feet Sdn Bhd specializes in custom-made diabetic and orthopaedic shoes using 3D Italian foot scanning technology in Sentul, Kuala Lumpur.">
     
     <!-- Open Graph / SEO -->
