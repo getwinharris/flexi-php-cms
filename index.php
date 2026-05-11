@@ -13,16 +13,16 @@ $banners = [
 ];
 
 $problems = [
-    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'https://images.pexels.com/photos/13716991/pexels-photo-13716991.jpeg?auto=compress&cs=tinysrgb&w=400&h=250&dpr=1'],
+    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&q=80&w=400'],
     ['Foot Ulcers', 'Open sores caused by pressure or injury.', 'assets/images/open-source/diabetic-foot-ulcer.jpg'],
     ['Calluses & Corns', 'Thickened skin from friction.', 'assets/images/open-source/corn-callus.jpg'],
-    ['Poor Circulation', 'Reduced blood flow to extremities.', 'https://images.pexels.com/photos/13185360/pexels-photo-13185360.jpeg?auto=compress&cs=tinysrgb&w=400&h=250&dpr=1'],
+    ['Poor Circulation', 'Reduced blood flow to extremities.', 'https://images.unsplash.com/photo-1559839734-2b71f1e3c7e5?auto=format&fit=crop&q=80&w=400'],
     ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'https://upload.wikimedia.org/wikipedia/commons/5/59/Hammer_toes.jpg'],
     ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/open-source/bunion.jpg'],
     ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/open-source/flat-foot.jpg'],
     ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/open-source/charcot-foot.jpg'],
     ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/open-source/heel-spur.png'],
-    ['Ingrown Toenails', 'Nail edges growing into skin.', 'https://images.pexels.com/photos/30798553/pexels-photo-30798553.jpeg?auto=compress&cs=tinysrgb&w=400&h=250&dpr=1']
+    ['Ingrown Toenails', 'Nail edges growing into skin.', 'https://images.unsplash.com/photo-1519415943484-9fa1873496d4?auto=format&fit=crop&q=80&w=400']
 ];
 ?>
 <!doctype html>
@@ -201,7 +201,7 @@ $problems = [
     <section id="technology" class="scanning-section reveal">
         <div class="container scanning-grid">
             <div class="hero-visual">
-                <img src="https://images.pexels.com/photos/3913017/pexels-photo-3913017.jpeg?auto=compress&cs=tinysrgb&w=1000&h=600&dpr=1" alt="Advanced 3D Foot Scanner" class="scanning-image" loading="lazy">
+                <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1000" alt="Advanced 3D Foot Scanner" class="scanning-image" loading="lazy">
             </div>
             <div class="scanning-text">
                 <h2 style="font-size: 32px; margin-bottom: 20px;">Advanced Foot Scanning Technology</h2>
