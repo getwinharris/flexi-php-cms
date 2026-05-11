@@ -1,0 +1,5 @@
+deploy.zip
+.vscode/
+.DS_Store
+storage/appointments.json
+.gemini/
