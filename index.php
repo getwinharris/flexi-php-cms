@@ -447,16 +447,9 @@ $problems = [
     <div class="container">
         <div class="compact-footer">
             <div class="footer-legal">
-                <p><strong>Legal:</strong> <a href="#">Privacy Policy</a> <a href="#">Terms of Service</a></p>
+                <p><a href="#">Privacy Policy</a> <a href="#">Terms of Service</a></p>
                 <p>&copy; <?= date('Y') ?> Flexi Feet Sdn Bhd. All rights reserved.</p>
             </div>
-            <form class="newsletter-form" action="#" method="post">
-                <label for="newsletter-email">Subscribe for offers and newsletter</label>
-                <div class="newsletter-row">
-                    <input id="newsletter-email" type="email" name="newsletter_email" placeholder="Email address" aria-label="Email address">
-                    <button type="submit">Subscribe</button>
-                </div>
-            </form>
         </div>
     </div>
 </footer>
