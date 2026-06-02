@@ -4,7 +4,52 @@ require_once __DIR__ . '/includes/functions.php';
 start_app_session();
 $csrf = csrf_token();
 
-$shorts_ids = ['yiTjZajndfE', 'tuW4r1IArDY', '6Y_5UTtf_CI', 'K8ZBQpI09VA', 'cnZ7ghJ59hM', 'cF9bWTC2ImM'];
+$fallback_shorts_ids = ['yiTjZajndfE', 'tuW4r1IArDY', '6Y_5UTtf_CI', 'K8ZBQpI09VA', 'cnZ7ghJ59hM', 'cF9bWTC2ImM'];
+
+function get_youtube_shorts_ids(array $fallbackIds, int $limit = 18): array
+{
+    $cacheFile = STORAGE_DIR . '/youtube-shorts-cache.json';
+    $cacheTtl = 21600;
+
+    if (is_file($cacheFile)) {
+        $cache = json_decode((string) file_get_contents($cacheFile), true);
+        if (
+            is_array($cache)
+            && isset($cache['fetched_at'], $cache['ids'])
+            && time() - (int) $cache['fetched_at'] < $cacheTtl
+            && is_array($cache['ids'])
+        ) {
+            return array_slice(array_values(array_unique(array_merge($cache['ids'], $fallbackIds))), 0, $limit);
+        }
+    }
+
+    $ids = [];
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 4,
+            'header' => "User-Agent: Mozilla/5.0\r\nAccept-Language: en-US,en;q=0.9\r\n",
+        ],
+    ]);
+    $html = @file_get_contents('https://www.youtube.com/@flexifeetmalaysia/shorts', false, $context);
+
+    if (is_string($html) && preg_match_all('/"videoId":"([a-zA-Z0-9_-]{11})"/', $html, $matches)) {
+        $ids = array_values(array_unique($matches[1]));
+    }
+
+    $ids = array_slice(array_values(array_unique(array_merge($ids, $fallbackIds))), 0, $limit);
+
+    if (!empty($ids)) {
+        storage_bootstrap();
+        @file_put_contents($cacheFile, json_encode([
+            'fetched_at' => time(),
+            'ids' => $ids,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    }
+
+    return $ids ?: $fallbackIds;
+}
+
+$shorts_ids = get_youtube_shorts_ids($fallback_shorts_ids);
 
 $banners = [
     ['url' => 'assets/images/banner-foot-problems.jpg', 'alt' => 'Common Foot Problems'],
@@ -13,16 +58,16 @@ $banners = [
 ];
 
 $problems = [
-    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&q=80&w=400'],
-    ['Foot Ulcers', 'Open sores caused by pressure or injury.', 'assets/images/open-source/diabetic-foot-ulcer.jpg'],
-    ['Calluses & Corns', 'Thickened skin from friction.', 'assets/images/open-source/corn-callus.jpg'],
-    ['Poor Circulation', 'Reduced blood flow to extremities.', 'https://images.unsplash.com/photo-1559839734-2b71f1e3c7e5?auto=format&fit=crop&q=80&w=400'],
-    ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'https://upload.wikimedia.org/wikipedia/commons/5/59/Hammer_toes.jpg'],
-    ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/open-source/bunion.jpg'],
-    ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/open-source/flat-foot.jpg'],
-    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/open-source/charcot-foot.jpg'],
-    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/open-source/heel-spur.png'],
-    ['Ingrown Toenails', 'Nail edges growing into skin.', 'https://images.unsplash.com/photo-1519415943484-9fa1873496d4?auto=format&fit=crop&q=80&w=400']
+    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'assets/images/conditions/diabetic-neuropathy.jpg'],
+    ['Foot Ulcers', 'Open sores caused by pressure or injury.', 'assets/images/conditions/foot-ulcers.jpg'],
+    ['Calluses & Corns', 'Thickened skin from friction.', 'assets/images/conditions/calluses-corns.jpg'],
+    ['Poor Circulation', 'Reduced blood flow to extremities.', 'assets/images/conditions/poor-circulation.jpg'],
+    ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'assets/images/conditions/hammer-toes.jpg'],
+    ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/conditions/bunions.jpg'],
+    ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/conditions/flat-feet.jpg'],
+    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot.jpg'],
+    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg'],
+    ['Ingrown Toenails', 'Nail edges growing into skin.', 'assets/images/conditions/ingrown-toenails.jpg']
 ];
 ?>
 <!doctype html>
@@ -96,7 +141,7 @@ $problems = [
                     </div>
                 <?php endforeach; ?>
             </div>
-            <div class="swiper-pagination"></div>
+            <div class="swiper-pagination hero-pagination"></div>
         </div>
     </section>
 
@@ -150,11 +195,22 @@ $problems = [
                     <div class="swiper-wrapper">
                         <?php foreach ($shorts_ids as $id): ?>
                             <div class="swiper-slide">
-                                <iframe src="https://www.youtube.com/embed/<?= $id ?>?autoplay=0&loop=1&playlist=<?= $id ?>&controls=0&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                <button class="shorts-card" type="button" data-video-id="<?= e($id) ?>" aria-label="Play Flexi Feet Short">
+                                    <img src="https://i.ytimg.com/vi/<?= e($id) ?>/hqdefault.jpg" alt="Flexi Feet YouTube Short" loading="lazy">
+                                    <span class="shorts-play" aria-hidden="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                    </span>
+                                </button>
                             </div>
                         <?php endforeach; ?>
                     </div>
-                    <div class="swiper-pagination"></div>
+                    <button class="shorts-nav shorts-nav-prev" type="button" aria-label="Previous Short">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button class="shorts-nav shorts-nav-next" type="button" aria-label="Next Short">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    <div class="swiper-pagination shorts-pagination"></div>
                 </div>
             </div>
         </div>
@@ -171,30 +227,27 @@ $problems = [
                     <li>Seamless Interior to Prevent Irritation</li>
                     <li>Breathable, Durable Materials</li>
                 </ul>
-                <div style="margin-top: 40px;">
-                    <h4 style="margin-bottom: 20px;">Styles Available:</h4>
-                    <div class="grid-3" style="grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                        <div class="card hover-lift" style="padding: 15px; text-align: center;">
-                            <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400" alt="Walking Shoes" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">
-                            <p style="font-weight: 700; font-size: 14px; color: var(--logo-navy);">Walking Shoes</p>
-                        </div>
-                        <div class="card hover-lift" style="padding: 15px; text-align: center;">
-                            <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=400" alt="Dress Shoes" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">
-                            <p style="font-weight: 700; font-size: 14px; color: var(--logo-navy);">Dress Shoes</p>
-                        </div>
-                        <div class="card hover-lift" style="padding: 15px; text-align: center;">
-                            <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=400" alt="Sandals" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">
-                            <p style="font-weight: 700; font-size: 14px; color: var(--logo-navy);">Sandals</p>
-                        </div>
-                        <div class="card hover-lift" style="padding: 15px; text-align: center;">
-                            <img src="https://images.unsplash.com/photo-1579154235823-149b068bc22c?auto=format&fit=crop&q=80&w=400" alt="Boots" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" loading="lazy">
-                            <p style="font-weight: 700; font-size: 14px; color: var(--logo-navy);">Boots</p>
-                        </div>
+            </div>
+            <div class="product-styles-panel">
+                <h4>Styles Available</h4>
+                <div class="product-styles-grid">
+                    <div class="product-style-card hover-lift">
+                        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
+                        <p>Walking Shoes</p>
+                    </div>
+                    <div class="product-style-card hover-lift">
+                        <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
+                        <p>Dress Shoes</p>
+                    </div>
+                    <div class="product-style-card hover-lift">
+                        <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
+                        <p>Sandals</p>
+                    </div>
+                    <div class="product-style-card hover-lift">
+                        <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
+                        <p>Boots</p>
                     </div>
                 </div>
-            </div>
-            <div class="hero-visual">
-                <img src="https://images.unsplash.com/photo-1556155092-490a1ba16284?auto=format&fit=crop&q=80&w=1000" alt="Shoe Craftsmanship" class="scanning-image">
             </div>
         </div>
     </section>
@@ -202,7 +255,7 @@ $problems = [
     <section id="technology" class="scanning-section reveal">
         <div class="container scanning-grid">
             <div class="hero-visual">
-                <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1000" alt="Advanced 3D Foot Scanner" class="scanning-image" loading="lazy">
+                <img src="assets/images/foot-scanning-technology.png" alt="Advanced 3D foot scanning pressure map" class="scanning-image" loading="lazy">
             </div>
             <div class="scanning-text">
                 <h2 style="font-size: 32px; margin-bottom: 20px;">Advanced Foot Scanning Technology</h2>
@@ -225,7 +278,7 @@ $problems = [
         <div class="problems-grid">
             <?php foreach ($problems as $index => $problem): ?>
                 <div class="problem-card">
-                    <img src="<?= $problem[2] ?>" alt="<?= e($problem[0]) ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 15px;">
+                    <img src="<?= $problem[2] ?>" alt="<?= e($problem[0]) ?>" loading="lazy">
                     <h3><?= ($index + 1) . '. ' . e($problem[0]) ?></h3>
                     <p><?= e($problem[1]) ?></p>
                 </div>
@@ -251,43 +304,6 @@ $problems = [
                 <div style="font-size: 40px; font-weight: 800; color: var(--apple-blue); margin-bottom: 20px;">3</div>
                 <h3>Choose Your Style</h3>
                 <p>Pick from a variety of fashionable and functional designs.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="location" class="container reveal">
-        <h2 class="section-title">Visit Our Specialist Center</h2>
-        <p class="section-subtitle">Located in the heart of Sentul, our facility is equipped with the latest diagnostic technology.</p>
-        <div class="grid-3" style="grid-template-columns: 1fr 2fr; gap: 40px; align-items: center;">
-            <div class="contact-details-card">
-                <div class="card" style="padding: 30px; border-radius: var(--radius-lg);">
-                    <h3 style="margin-bottom: 20px;">Contact Information</h3>
-                    <div style="display: grid; gap: 20px;">
-                        <div>
-                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Address</p>
-                            <p style="font-size: 15px;"><?= nl2br(e(BUSINESS_ADDRESS)) ?></p>
-                        </div>
-                        <div>
-                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Phone</p>
-                            <a href="tel:<?= str_replace(' ', '', BUSINESS_PHONE) ?>" style="font-size: 18px; font-weight: 600; color: var(--apple-blue);"><?= e(BUSINESS_PHONE) ?></a>
-                        </div>
-                        <div>
-                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Email</p>
-                            <a href="mailto:<?= e(BUSINESS_EMAIL) ?>" style="font-size: 15px;"><?= e(BUSINESS_EMAIL) ?></a>
-                        </div>
-                        <div style="display: flex; gap: 15px; margin-top: 10px;">
-                            <a href="https://www.instagram.com/flexifeetmalaysia/" target="_blank" class="cta-button" style="padding: 8px 12px; background: var(--apple-gray-100); color: var(--text) !important;">IG</a>
-                            <a href="https://www.facebook.com/flexifeetmalaysia" target="_blank" class="cta-button" style="padding: 8px 12px; background: var(--apple-gray-100); color: var(--text) !important;">FB</a>
-                            <a href="https://www.youtube.com/@flexifeetmalaysia" target="_blank" class="cta-button" style="padding: 8px 12px; background: var(--apple-gray-100); color: var(--text) !important;">YT</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="map-container" style="border-radius: var(--radius-lg); overflow: hidden; height: 400px; box-shadow: var(--shadow-lg);">
-                <iframe 
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.655823190847!2d101.68832677582522!3d3.203362152516484!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc380720442385%3A0xc3f7a1f59995555e!2sResidency%20Awani%202!5e0!3m2!1sen!2smy!4v1715360000000!5m2!1sen!2smy" 
-                    width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
-                </iframe>
             </div>
         </div>
     </section>
@@ -381,41 +397,66 @@ $problems = [
             </div>
         </div>
     </section>
+
+    <section id="location" class="container reveal">
+        <h2 class="section-title">Visit Our Specialist Center</h2>
+        <p class="section-subtitle">Located in the heart of Sentul, our facility is equipped with the latest diagnostic technology.</p>
+        <div class="grid-3" style="grid-template-columns: 1fr 2fr; gap: 40px; align-items: center;">
+            <div class="contact-details-card">
+                <div class="card" style="padding: 30px; border-radius: var(--radius-lg);">
+                    <img src="assets/images/flexi-feet-logo.png" alt="Flexi Feet Sdn Bhd" class="contact-card-logo">
+                    <h3 style="margin-bottom: 20px;">Contact Information</h3>
+                    <div style="display: grid; gap: 20px;">
+                        <div>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Address</p>
+                            <p style="font-size: 15px;"><?= nl2br(e(BUSINESS_ADDRESS)) ?></p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Phone</p>
+                            <a href="tel:<?= str_replace(' ', '', BUSINESS_PHONE) ?>" style="font-size: 18px; font-weight: 600; color: var(--apple-blue);"><?= e(BUSINESS_PHONE) ?></a>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Email</p>
+                            <a href="mailto:<?= e(BUSINESS_EMAIL) ?>" style="font-size: 15px;"><?= e(BUSINESS_EMAIL) ?></a>
+                        </div>
+                        <div class="social-icons" aria-label="Social links">
+                            <a href="https://www.instagram.com/flexifeetmalaysia/" target="_blank" rel="noopener" class="social-icon" aria-label="Instagram">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+                            </a>
+                            <a href="https://www.facebook.com/flexifeetmalaysia" target="_blank" rel="noopener" class="social-icon" aria-label="Facebook">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 8.5V6.75c0-.7.24-1.05 1.16-1.05H17V2.25A24 24 0 0 0 14.32 2C11.67 2 9.86 3.62 9.86 6.59V8.5H7v3.86h2.86V22h4.17v-9.64h2.84l.45-3.86H14z"/></svg>
+                            </a>
+                            <a href="https://www.youtube.com/@flexifeetmalaysia" target="_blank" rel="noopener" class="social-icon" aria-label="YouTube">
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 7.1a3.02 3.02 0 0 0-2.13-2.14C18.99 4.45 12 4.45 12 4.45s-6.99 0-8.87.51A3.02 3.02 0 0 0 1 7.1 31.5 31.5 0 0 0 .5 12 31.5 31.5 0 0 0 1 16.9a3.02 3.02 0 0 0 2.13 2.14c1.88.51 8.87.51 8.87.51s6.99 0 8.87-.51A3.02 3.02 0 0 0 23 16.9a31.5 31.5 0 0 0 .5-4.9A31.5 31.5 0 0 0 23 7.1zM9.75 15.4V8.6L15.7 12l-5.95 3.4z"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="map-container" style="border-radius: var(--radius-lg); overflow: hidden; height: 400px; box-shadow: var(--shadow-lg);">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.655823190847!2d101.68832677582522!3d3.203362152516484!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc380720442385%3A0xc3f7a1f59995555e!2sResidency%20Awani%202!5e0!3m2!1sen!2smy!4v1715360000000!5m2!1sen!2smy"
+                    width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
+            </div>
+        </div>
+    </section>
 </main>
 
 <footer>
     <div class="container">
-        <div class="footer-grid">
-            <div class="footer-info">
-                <img src="assets/images/flexi-feet-logo.png" alt="Flexi Feet" style="height: 40px; margin-bottom: 20px;">
-                <p style="color: var(--text-muted); max-width: 300px; margin-bottom: 20px;">Custom-made diabetic and orthopaedic footwear in Kuala Lumpur. Medically approved, clinically supportive.</p>
-                <div style="font-size: 14px; color: var(--text);">
-                    <p><strong>Flexi Feet Sdn Bhd</strong></p>
-                    <p><?= e(BUSINESS_ADDRESS) ?></p>
-                    <p style="margin-top: 10px;"><?= e(BUSINESS_PHONE) ?></p>
+        <div class="compact-footer">
+            <div class="footer-legal">
+                <p><strong>Legal:</strong> <a href="#">Privacy Policy</a> <a href="#">Terms of Service</a></p>
+                <p>&copy; <?= date('Y') ?> Flexi Feet Sdn Bhd. All rights reserved.</p>
+            </div>
+            <form class="newsletter-form" action="#" method="post">
+                <label for="newsletter-email">Subscribe for offers and newsletter</label>
+                <div class="newsletter-row">
+                    <input id="newsletter-email" type="email" name="newsletter_email" placeholder="Email address" aria-label="Email address">
+                    <button type="submit">Subscribe</button>
                 </div>
-            </div>
-            <div class="footer-links">
-                <h4>Quick Links</h4>
-                <ul>
-                    <li><a href="#about">About Us</a></li>
-                    <li><a href="#products">Our Products</a></li>
-                    <li><a href="#technology">Technology</a></li>
-                    <li><a href="#conditions">Conditions</a></li>
-                </ul>
-            </div>
-            <div class="footer-links">
-                <h4>Legal</h4>
-                <ul>
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                    <li><a href="admin/login.php">Admin Login</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; <?= date('Y') ?> Flexi Feet Sdn Bhd. All rights reserved.</p>
-            <p>Designed with medical precision in Kuala Lumpur.</p>
+            </form>
         </div>
     </div>
 </footer>
@@ -423,6 +464,10 @@ $problems = [
 <div class="scroll-top" id="scroll-top">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
 </div>
+
+<a class="whatsapp-chat" href="https://wa.me/60166055477?text=inquiry%20from%20flexifeet.new%20web%20portal" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+    <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16.04 3C8.87 3 3.04 8.8 3.04 15.92c0 2.28.6 4.51 1.74 6.47L3 29l6.79-1.76a13.05 13.05 0 0 0 6.25 1.59c7.17 0 13-5.8 13-12.92S23.21 3 16.04 3zm0 23.64c-1.93 0-3.82-.52-5.48-1.5l-.39-.23-4.03 1.04 1.08-3.91-.25-.4a10.61 10.61 0 0 1-1.63-5.72c0-5.91 4.8-10.73 10.7-10.73s10.7 4.82 10.7 10.73-4.8 10.72-10.7 10.72zm5.87-8.03c-.32-.16-1.9-.94-2.2-1.05-.3-.1-.51-.16-.73.16-.21.32-.84 1.05-1.03 1.27-.19.21-.38.24-.7.08-.32-.16-1.36-.5-2.59-1.6a9.7 9.7 0 0 1-1.79-2.22c-.19-.32-.02-.5.14-.66.15-.15.32-.38.49-.57.16-.19.21-.32.32-.54.1-.21.05-.4-.03-.56-.08-.16-.73-1.75-1-2.4-.26-.63-.53-.54-.73-.55h-.62c-.21 0-.56.08-.86.4-.3.32-1.13 1.1-1.13 2.67s1.16 3.1 1.32 3.31c.16.21 2.29 3.48 5.54 4.88.77.33 1.38.53 1.85.68.78.25 1.48.21 2.04.13.62-.09 1.9-.78 2.17-1.53.27-.75.27-1.4.19-1.53-.08-.13-.29-.21-.61-.37z"/></svg>
+</a>
 
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script src="assets/app.js"></script>

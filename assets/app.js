@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 // Close mobile nav if open
-                document.querySelector('nav').classList.remove('active');
-                document.getElementById('burger-toggle').classList.remove('active');
+                document.querySelector('nav')?.classList.remove('active');
+                document.getElementById('burger-toggle')?.classList.remove('active');
             }
         });
     });
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nav = document.querySelector('nav');
     if (burgerToggle) {
         burgerToggle.addEventListener('click', () => {
-            nav.classList.toggle('active');
+            nav?.classList.toggle('active');
             burgerToggle.classList.toggle('active');
         });
     }
@@ -45,9 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrollTop = document.getElementById('scroll-top');
     window.addEventListener('scroll', () => {
         if (window.scrollY > 500) {
-            scrollTop.classList.add('active');
+            scrollTop?.classList.add('active');
         } else {
-            scrollTop.classList.remove('active');
+            scrollTop?.classList.remove('active');
         }
     });
 
@@ -56,36 +56,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Swiper: Hero Banner
-    new Swiper('.hero-swiper', {
-        loop: true,
-        autoplay: {
-            delay: 4000,
-            disableOnInteraction: false,
-        },
-        pagination: {
-            el: '.swiper-pagination',
-            clickable: true,
-        },
-    });
+    if (document.querySelector('.hero-swiper')) {
+        new Swiper('.hero-swiper', {
+            loop: true,
+            autoplay: {
+                delay: 4000,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: '.hero-pagination',
+                clickable: true,
+            },
+        });
+    }
 
     // Swiper: Shorts (Reels Style)
-    new Swiper('.shorts-swiper', {
-        loop: true,
-        centeredSlides: true,
-        slidesPerView: 'auto',
-        spaceBetween: 30,
-        autoplay: {
-            delay: 3000,
-            disableOnInteraction: false,
-        },
-        pagination: {
-            el: '.swiper-pagination',
-            clickable: true,
-        },
-        breakpoints: {
-            320: { slidesPerView: 1.2, spaceBetween: 10 },
-            768: { slidesPerView: 2, spaceBetween: 20 },
-            1024: { slidesPerView: 'auto', spaceBetween: 30 }
+    if (document.querySelector('.shorts-swiper')) {
+        const resetPlayingShorts = () => {
+            document.querySelectorAll('.shorts-card.is-playing').forEach(card => {
+                const iframe = card.querySelector('iframe');
+                if (iframe) {
+                    iframe.remove();
+                }
+                card.classList.remove('is-playing');
+                card.removeAttribute('aria-pressed');
+            });
+        };
+
+        const shortsSwiper = new Swiper('.shorts-swiper', {
+            loop: true,
+            centeredSlides: true,
+            slidesPerView: 1.15,
+            spaceBetween: 14,
+            watchOverflow: true,
+            autoplay: {
+                delay: 3200,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true,
+            },
+            pagination: {
+                el: '.shorts-pagination',
+                clickable: true,
+            },
+            navigation: {
+                prevEl: '.shorts-nav-prev',
+                nextEl: '.shorts-nav-next',
+            },
+            breakpoints: {
+                640: { slidesPerView: 1.8, spaceBetween: 18 },
+                768: { slidesPerView: 2.35, spaceBetween: 24 },
+                1024: { slidesPerView: 'auto', spaceBetween: 30 }
+            },
+            on: {
+                slideChangeTransitionStart: resetPlayingShorts,
+            }
+        });
+
+        const shortsContainer = document.querySelector('.shorts-swiper');
+        shortsContainer?.addEventListener('click', (event) => {
+            const card = event.target.closest('.shorts-card');
+            if (!card || !shortsContainer.contains(card)) return;
+
+            const videoId = card.dataset.videoId;
+            if (!videoId) return;
+
+            const wasPlaying = card.classList.contains('is-playing');
+            resetPlayingShorts();
+
+            if (wasPlaying) return;
+
+            shortsSwiper.autoplay?.stop();
+            card.classList.add('is-playing');
+            card.setAttribute('aria-pressed', 'true');
+
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
+            iframe.title = 'Flexi Feet YouTube Short';
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+            iframe.allowFullscreen = true;
+            card.appendChild(iframe);
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            nav?.classList.remove('active');
+            burgerToggle?.classList.remove('active');
         }
     });
 
