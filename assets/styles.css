@@ -305,6 +305,33 @@ nav ul li a:hover {
     margin-bottom: 22px;
 }
 
+.blog-preview-section {
+    padding-top: 80px;
+}
+
+.section-heading-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-end;
+    margin-bottom: 34px;
+}
+
+.section-heading-row .section-title,
+.section-heading-row .section-subtitle {
+    text-align: left;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.blog-preview-swiper {
+    padding: 4px 2px 48px;
+}
+
+.blog-preview-swiper .blog-card {
+    height: auto;
+}
+
 .blog-inline-image {
     margin: 32px 0;
 }

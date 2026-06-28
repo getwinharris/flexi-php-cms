@@ -10,3 +10,6 @@ define('SMTP_FROM_EMAIL', 'support@flexifeet.net');
 define('SMTP_FROM_NAME', BUSINESS_NAME);
 define('BOOKING_OWNER_EMAIL', 'support@flexifeet.net');
 define('GA_MEASUREMENT_ID', 'G-XXXXXXXXXX');
+define('GOOGLE_AI_API_KEY', 'replace-with-google-ai-studio-api-key');
+define('GOOGLE_AI_MODEL', 'gemma-4-31b-it');
+define('AUTOMATION_TOKEN', 'replace-with-long-random-token');

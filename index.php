@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/functions.php';
 start_app_session();
 $csrf = csrf_token();
 $reels = read_reels(true);
+$latest_posts = array_slice(read_blog_posts(true), 0, 8);
 
 $banners = [
     ['url' => 'assets/images/banner-foot-problems.jpg', 'alt' => 'Common Foot Problems'],
@@ -306,71 +307,6 @@ $faqs = [
         </div>
     </section>
 
-    <section id="faq" class="container reveal faq-section">
-        <h2 class="section-title">Q & A</h2>
-        <p class="section-subtitle">Find quick answers about appointments, visits, payment, and custom footwear care.</p>
-        <div class="faq-shell" data-faq>
-            <div class="faq-tools">
-                <label class="faq-search" for="faq-search">
-                    <span aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-                    </span>
-                    <input id="faq-search" type="search" placeholder="Search questions" autocomplete="off" data-faq-search>
-                </label>
-                <div class="faq-actions">
-                    <button type="button" class="faq-tool-btn" data-faq-expand>Expand all</button>
-                    <button type="button" class="faq-tool-btn" data-faq-collapse>Collapse all</button>
-                </div>
-            </div>
-            <div class="faq-filters" aria-label="FAQ filters">
-                <button type="button" class="faq-filter active" data-faq-filter="all">All</button>
-                <button type="button" class="faq-filter" data-faq-filter="appointment">Appointments</button>
-                <button type="button" class="faq-filter" data-faq-filter="product">Products</button>
-                <button type="button" class="faq-filter" data-faq-filter="payment">Payment</button>
-                <button type="button" class="faq-filter" data-faq-filter="visit">Visits</button>
-            </div>
-            <div class="faq-grid">
-                <?php foreach ($faqs as $index => $faq): ?>
-                    <?php
-                        $faqText = strtolower($faq[0] . ' ' . $faq[1]);
-                        $category = 'product';
-                        if (strpos($faqText, 'parking') !== false || strpos($faqText, 'ground floor') !== false || strpos($faqText, 'home visit') !== false || strpos($faqText, 'malaysia') !== false || strpos($faqText, 'travel') !== false) {
-                            $category = 'visit';
-                        } elseif (strpos($faqText, 'appointment') !== false || strpos($faqText, 'consultation') !== false || strpos($faqText, 'sunday') !== false) {
-                            $category = 'appointment';
-                        } elseif (strpos($faqText, 'payment') !== false || strpos($faqText, 'deposit') !== false || strpos($faqText, 'card') !== false || strpos($faqText, 'transfer') !== false) {
-                            $category = 'payment';
-                        }
-                    ?>
-                    <article class="faq-item<?= $index === 0 ? ' active' : '' ?>" data-faq-item data-category="<?= e($category) ?>">
-                        <h3>
-                            <button
-                                type="button"
-                                class="faq-question"
-                                id="faq-question-<?= $index ?>"
-                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>"
-                                aria-controls="faq-answer-<?= $index ?>"
-                            >
-                                <span><?= e($faq[0]) ?></span>
-                                <span class="faq-toggle" aria-hidden="true"></span>
-                            </button>
-                        </h3>
-                        <div
-                            class="faq-answer"
-                            id="faq-answer-<?= $index ?>"
-                            role="region"
-                            aria-labelledby="faq-question-<?= $index ?>"
-                            <?= $index === 0 ? '' : 'hidden' ?>
-                        >
-                            <p><?= e($faq[1]) ?></p>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-                <p class="faq-empty" data-faq-empty hidden>No matching questions yet. Try another keyword or category.</p>
-            </div>
-        </div>
-    </section>
-
     <section id="booking" class="booking-section">
         <div class="container booking-container">
             <div class="booking-text">
@@ -457,6 +393,101 @@ $faqs = [
                     <button type="submit" class="submit-btn">Request Appointment</button>
                     <p id="form-message" style="margin-top: 15px; font-size: 14px; text-align: center;"></p>
                 </form>
+            </div>
+        </div>
+    </section>
+
+    <?php if (!empty($latest_posts)): ?>
+    <section id="blog-preview" class="container reveal blog-preview-section">
+        <div class="section-heading-row">
+            <div>
+                <h2 class="section-title">Latest Foot Care Guides</h2>
+                <p class="section-subtitle">SEO-focused guides for diabetic shoes, custom insoles, flat feet support, and safer daily walking.</p>
+            </div>
+            <a href="blog.php" class="read-more">View All Articles</a>
+        </div>
+        <div class="swiper blog-preview-swiper">
+            <div class="swiper-wrapper">
+                <?php foreach ($latest_posts as $post): ?>
+                    <article class="swiper-slide blog-card">
+                        <?php if (!empty($post['featured_image'])): ?>
+                            <img src="<?= e($post['featured_image']) ?>" alt="<?= e($post['title']) ?>" loading="lazy">
+                        <?php endif; ?>
+                        <div class="blog-card-body">
+                            <span class="blog-date"><?= e(date('M j, Y', strtotime($post['published_at'] ?: $post['created_at']))) ?></span>
+                            <h2><a href="blog-post.php?slug=<?= e($post['slug']) ?>"><?= e($post['title']) ?></a></h2>
+                            <p><?= e($post['excerpt']) ?></p>
+                            <a class="read-more" href="blog-post.php?slug=<?= e($post['slug']) ?>">Read More</a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <div class="swiper-pagination blog-preview-pagination"></div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <section id="faq" class="container reveal faq-section">
+        <h2 class="section-title">Q & A</h2>
+        <p class="section-subtitle">Find quick answers about appointments, visits, payment, and custom footwear care.</p>
+        <div class="faq-shell" data-faq>
+            <div class="faq-tools">
+                <label class="faq-search" for="faq-search">
+                    <span aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                    <input id="faq-search" type="search" placeholder="Search questions" autocomplete="off" data-faq-search>
+                </label>
+                <div class="faq-actions">
+                    <button type="button" class="faq-tool-btn" data-faq-expand>Expand all</button>
+                    <button type="button" class="faq-tool-btn" data-faq-collapse>Collapse all</button>
+                </div>
+            </div>
+            <div class="faq-filters" aria-label="FAQ filters">
+                <button type="button" class="faq-filter active" data-faq-filter="all">All</button>
+                <button type="button" class="faq-filter" data-faq-filter="appointment">Appointments</button>
+                <button type="button" class="faq-filter" data-faq-filter="product">Products</button>
+                <button type="button" class="faq-filter" data-faq-filter="payment">Payment</button>
+                <button type="button" class="faq-filter" data-faq-filter="visit">Visits</button>
+            </div>
+            <div class="faq-grid">
+                <?php foreach ($faqs as $index => $faq): ?>
+                    <?php
+                        $faqText = strtolower($faq[0] . ' ' . $faq[1]);
+                        $category = 'product';
+                        if (strpos($faqText, 'parking') !== false || strpos($faqText, 'ground floor') !== false || strpos($faqText, 'home visit') !== false || strpos($faqText, 'malaysia') !== false || strpos($faqText, 'travel') !== false) {
+                            $category = 'visit';
+                        } elseif (strpos($faqText, 'appointment') !== false || strpos($faqText, 'consultation') !== false || strpos($faqText, 'sunday') !== false) {
+                            $category = 'appointment';
+                        } elseif (strpos($faqText, 'payment') !== false || strpos($faqText, 'deposit') !== false || strpos($faqText, 'card') !== false || strpos($faqText, 'transfer') !== false) {
+                            $category = 'payment';
+                        }
+                    ?>
+                    <article class="faq-item<?= $index === 0 ? ' active' : '' ?>" data-faq-item data-category="<?= e($category) ?>">
+                        <h3>
+                            <button
+                                type="button"
+                                class="faq-question"
+                                id="faq-question-<?= $index ?>"
+                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>"
+                                aria-controls="faq-answer-<?= $index ?>"
+                            >
+                                <span><?= e($faq[0]) ?></span>
+                                <span class="faq-toggle" aria-hidden="true"></span>
+                            </button>
+                        </h3>
+                        <div
+                            class="faq-answer"
+                            id="faq-answer-<?= $index ?>"
+                            role="region"
+                            aria-labelledby="faq-question-<?= $index ?>"
+                            <?= $index === 0 ? '' : 'hidden' ?>
+                        >
+                            <p><?= e($faq[1]) ?></p>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+                <p class="faq-empty" data-faq-empty hidden>No matching questions yet. Try another keyword or category.</p>
             </div>
         </div>
     </section>

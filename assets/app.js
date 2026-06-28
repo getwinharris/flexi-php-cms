@@ -70,6 +70,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (document.querySelector('.blog-preview-swiper')) {
+        new Swiper('.blog-preview-swiper', {
+            slidesPerView: 1.1,
+            spaceBetween: 18,
+            watchOverflow: true,
+            pagination: {
+                el: '.blog-preview-pagination',
+                clickable: true,
+            },
+            breakpoints: {
+                700: { slidesPerView: 2, spaceBetween: 22 },
+                1024: { slidesPerView: 3, spaceBetween: 26 }
+            }
+        });
+    }
+
     // Swiper: Shorts (Reels Style)
     if (document.querySelector('.shorts-swiper')) {
         const shortsSwiper = new Swiper('.shorts-swiper', {

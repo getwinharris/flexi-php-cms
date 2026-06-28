@@ -11,6 +11,7 @@
         </div>
         <a class="<?= $current === 'media.php' ? 'active' : '' ?>" href="media.php">Media</a>
         <a class="<?= $current === 'reels.php' ? 'active' : '' ?>" href="reels.php">Instagram Reels</a>
+        <a class="<?= $current === 'ai-writer.php' ? 'active' : '' ?>" href="ai-writer.php">AI Writer</a>
         <a class="<?= $current === 'settings.php' ? 'active' : '' ?>" href="settings.php">Settings</a>
         <a href="../" target="_blank">View Website</a>
     </nav>

@@ -23,6 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'SMTP_FROM_NAME' => normalize_text($_POST['SMTP_FROM_NAME'] ?? '', 180),
                 'BOOKING_OWNER_EMAIL' => normalize_text($_POST['BOOKING_OWNER_EMAIL'] ?? '', 180),
                 'GA_MEASUREMENT_ID' => normalize_text($_POST['GA_MEASUREMENT_ID'] ?? '', 40),
+                'GOOGLE_AI_MODEL' => normalize_text($_POST['GOOGLE_AI_MODEL'] ?? '', 80),
+                'GOOGLE_AI_API_KEY_SET' => !empty($_POST['GOOGLE_AI_API_KEY']) || $settings['GOOGLE_AI_API_KEY_SET'],
+                'AUTOMATION_TOKEN_SET' => !empty($_POST['AUTOMATION_TOKEN']) || $settings['AUTOMATION_TOKEN_SET'],
                 'SMTP_PASSWORD_SET' => true,
             ]);
         } else {
@@ -95,6 +98,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label>Google Analytics Measurement ID</label>
                     <input type="text" name="GA_MEASUREMENT_ID" value="<?= e($settings['GA_MEASUREMENT_ID']) ?>" placeholder="G-XXXXXXXXXX">
+                </div>
+                <div>
+                    <label>Google AI Studio Model</label>
+                    <input type="text" name="GOOGLE_AI_MODEL" value="<?= e($settings['GOOGLE_AI_MODEL']) ?>" placeholder="gemma-4-31b-it">
+                </div>
+                <div>
+                    <label>Google AI Studio API Key</label>
+                    <input type="password" name="GOOGLE_AI_API_KEY" value="" placeholder="<?= $settings['GOOGLE_AI_API_KEY_SET'] ? 'Leave blank to keep current key' : 'Enter API key' ?>">
+                </div>
+                <div>
+                    <label>Automation Token</label>
+                    <input type="password" name="AUTOMATION_TOKEN" value="" placeholder="<?= $settings['AUTOMATION_TOKEN_SET'] ? 'Leave blank to keep current token' : 'Enter long random token' ?>">
                 </div>
             </div>
             <button class="wp-button primary" type="submit">Save Settings</button>

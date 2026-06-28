@@ -633,6 +633,9 @@ function current_mail_settings(): array
         'BOOKING_OWNER_EMAIL' => BOOKING_OWNER_EMAIL,
         'SMTP_PASSWORD_SET' => SMTP_PASSWORD !== '',
         'GA_MEASUREMENT_ID' => GA_MEASUREMENT_ID,
+        'GOOGLE_AI_API_KEY_SET' => GOOGLE_AI_API_KEY !== '',
+        'GOOGLE_AI_MODEL' => GOOGLE_AI_MODEL,
+        'AUTOMATION_TOKEN_SET' => AUTOMATION_TOKEN !== '',
     ];
 }
 
@@ -648,6 +651,9 @@ function save_mail_settings(array $payload): array
         'SMTP_FROM_NAME' => normalize_text($payload['SMTP_FROM_NAME'] ?? BUSINESS_NAME, 180),
         'BOOKING_OWNER_EMAIL' => normalize_text($payload['BOOKING_OWNER_EMAIL'] ?? '', 180),
         'GA_MEASUREMENT_ID' => normalize_text($payload['GA_MEASUREMENT_ID'] ?? '', 40),
+        'GOOGLE_AI_API_KEY' => (string) ($payload['GOOGLE_AI_API_KEY'] ?? ''),
+        'GOOGLE_AI_MODEL' => normalize_text($payload['GOOGLE_AI_MODEL'] ?? 'gemma-4-31b-it', 80),
+        'AUTOMATION_TOKEN' => (string) ($payload['AUTOMATION_TOKEN'] ?? ''),
     ];
 
     if ($settings['SMTP_HOST'] === '') {
@@ -667,6 +673,12 @@ function save_mail_settings(array $payload): array
     if ($settings['SMTP_PASSWORD'] === '') {
         $settings['SMTP_PASSWORD'] = SMTP_PASSWORD;
     }
+    if ($settings['GOOGLE_AI_API_KEY'] === '') {
+        $settings['GOOGLE_AI_API_KEY'] = GOOGLE_AI_API_KEY;
+    }
+    if ($settings['AUTOMATION_TOKEN'] === '') {
+        $settings['AUTOMATION_TOKEN'] = AUTOMATION_TOKEN;
+    }
 
     $content = "<?php\n";
     $content .= "declare(strict_types=1);\n\n";
@@ -679,12 +691,50 @@ function save_mail_settings(array $payload): array
     $content .= "define('SMTP_FROM_NAME', " . var_export($settings['SMTP_FROM_NAME'], true) . ");\n";
     $content .= "define('BOOKING_OWNER_EMAIL', " . var_export($settings['BOOKING_OWNER_EMAIL'], true) . ");\n";
     $content .= "define('GA_MEASUREMENT_ID', " . var_export($settings['GA_MEASUREMENT_ID'], true) . ");\n";
+    $content .= "define('GOOGLE_AI_API_KEY', " . var_export($settings['GOOGLE_AI_API_KEY'], true) . ");\n";
+    $content .= "define('GOOGLE_AI_MODEL', " . var_export($settings['GOOGLE_AI_MODEL'], true) . ");\n";
+    $content .= "define('AUTOMATION_TOKEN', " . var_export($settings['AUTOMATION_TOKEN'], true) . ");\n";
 
     if (file_put_contents(CONFIG_LOCAL_FILE, $content, LOCK_EX) === false) {
         return ['ok' => false, 'message' => 'Could not write SMTP settings. Check file permissions.'];
     }
 
     return ['ok' => true, 'message' => 'SMTP settings saved.'];
+}
+
+function google_ai_configured(): bool
+{
+    return GOOGLE_AI_API_KEY !== '' && GOOGLE_AI_MODEL !== '';
+}
+
+function generate_ai_blog_prompt(string $topic): string
+{
+    return "Write a medically careful SEO blog post for Flexi Feet Sdn Bhd in Malaysia about: {$topic}. Include a concise title, slug, meta description, excerpt, and 900-1200 words. Focus on custom diabetic shoes, offload insoles, flat feet insoles, diabetic socks, 3D foot assessment, booking a fitting in Sentul Kuala Lumpur. Do not claim cures. Add a short Reddit/Quora style helpful answer draft for manual review, not automated posting.";
+}
+
+function call_google_ai_studio(string $prompt): array
+{
+    if (!google_ai_configured()) {
+        return ['ok' => false, 'message' => 'Google AI Studio API key is not configured.'];
+    }
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode(GOOGLE_AI_MODEL) . ':generateContent?key=' . rawurlencode(GOOGLE_AI_API_KEY);
+    $payload = json_encode(['contents' => [['parts' => [['text' => $prompt]]]]], JSON_UNESCAPED_SLASHES);
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\n",
+            'content' => $payload,
+            'timeout' => 45,
+            'ignore_errors' => true,
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    $data = json_decode((string) $raw, true);
+    $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    if ($text === '') {
+        return ['ok' => false, 'message' => 'Google AI returned no content.', 'raw' => $raw];
+    }
+    return ['ok' => true, 'text' => $text];
 }
 
 function is_admin(): bool

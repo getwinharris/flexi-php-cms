@@ -458,6 +458,29 @@
     padding: 2px 5px;
 }
 
+.settings-form > label {
+    color: var(--logo-navy);
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.settings-form > input,
+.ai-output textarea {
+    border: 1px solid var(--apple-gray-200);
+    border-radius: 6px;
+    font: inherit;
+    margin-bottom: 16px;
+    padding: 12px;
+    width: 100%;
+}
+
+.ai-output {
+    margin-top: 24px;
+    padding: 24px;
+}
+
 @media (max-width: 900px) {
     .wp-sidebar {
         position: static;
