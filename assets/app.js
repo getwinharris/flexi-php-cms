@@ -276,4 +276,79 @@ document.addEventListener('DOMContentLoaded', () => {
             header.style.boxShadow = 'none';
         }
     });
+
+    const supportPanel = document.querySelector('[data-support-panel]');
+    const supportMessages = document.querySelector('[data-support-messages]');
+    const supportDetail = document.querySelector('[data-support-detail]');
+    const supportDetailTitle = document.querySelector('[data-support-detail-title]');
+    const setSupportMode = (mode) => {
+        if (!supportDetail) return;
+        supportDetail.removeAttribute('hidden');
+        supportDetail.querySelector('[name="action"]').value = mode;
+        supportDetail.querySelectorAll('[data-booking-field]').forEach((field) => field.hidden = mode !== 'booking');
+        supportDetail.querySelectorAll('[data-ticket-field]').forEach((field) => field.hidden = mode !== 'ticket');
+        if (supportDetailTitle) {
+            supportDetailTitle.textContent = mode === 'booking' ? 'Appointment details' : 'Support ticket details';
+        }
+    };
+    const appendSupportMessage = (text, type = 'bot', suggestions = []) => {
+        if (!supportMessages) return;
+        const item = document.createElement('div');
+        item.className = `${type}-message`;
+        item.textContent = text;
+        supportMessages.appendChild(item);
+        suggestions.forEach((suggestion) => {
+            const link = document.createElement('a');
+            link.className = 'bot-suggestion';
+            link.href = suggestion.url;
+            link.textContent = suggestion.title;
+            supportMessages.appendChild(link);
+        });
+        supportMessages.scrollTop = supportMessages.scrollHeight;
+    };
+
+    document.querySelectorAll('[data-support-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const isHidden = supportPanel?.hasAttribute('hidden');
+            if (isHidden) supportPanel?.removeAttribute('hidden');
+            else supportPanel?.setAttribute('hidden', '');
+            document.querySelector('[data-support-toggle]')?.setAttribute('aria-expanded', String(isHidden));
+        });
+    });
+
+    document.querySelector('[data-support-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const message = form.message.value.trim();
+        if (!message) return;
+        appendSupportMessage(message, 'user');
+        form.reset();
+        const body = new FormData();
+        body.append('action', 'message');
+        body.append('message', message);
+        const response = await fetch('api/support-bot.php', { method: 'POST', body });
+        const result = await response.json();
+        appendSupportMessage(result.reply || result.message, 'bot', result.suggestions || []);
+        if (result.intent === 'booking') setSupportMode('booking');
+        if (result.intent === 'ticket') setSupportMode('ticket');
+    });
+
+    document.querySelectorAll('[data-support-mode]').forEach((button) => {
+        button.addEventListener('click', () => {
+            setSupportMode(button.dataset.supportMode);
+        });
+    });
+
+    supportDetail?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const body = new FormData(form);
+        const response = await fetch('api/support-bot.php', { method: 'POST', body });
+        const result = await response.json();
+        appendSupportMessage(result.ok ? `${result.message} ${result.appointment_id || result.ticket_id || ''}` : result.message, result.ok ? 'bot' : 'user');
+        if (result.ok) {
+            form.reset();
+            form.setAttribute('hidden', '');
+        }
+    });
 });

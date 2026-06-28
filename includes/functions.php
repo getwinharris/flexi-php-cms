@@ -69,6 +69,13 @@ function storage_bootstrap(): void
             'updated_at' => gmdate(DATE_ATOM),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
+
+    if (!file_exists(SUPPORT_TICKETS_FILE)) {
+        file_put_contents(SUPPORT_TICKETS_FILE, json_encode([
+            'tickets' => [],
+            'updated_at' => gmdate(DATE_ATOM),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
 }
 
 function normalize_text(?string $value, int $maxLength = 300): string
@@ -136,6 +143,120 @@ function update_appointment_status(string $id, string $status): bool
         }
     }
     return false;
+}
+
+function read_support_tickets(): array
+{
+    $tickets = read_json_file(SUPPORT_TICKETS_FILE, 'tickets');
+    usort($tickets, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+    return $tickets;
+}
+
+function save_support_tickets(array $tickets): void
+{
+    save_json_file(SUPPORT_TICKETS_FILE, 'tickets', $tickets);
+}
+
+function create_support_ticket(array $payload): array
+{
+    $tickets = read_support_tickets();
+    $ticket = [
+        'id' => 'TICKET-' . date('Ymd') . '-' . str_pad((string) (count($tickets) + 1), 4, '0', STR_PAD_LEFT),
+        'name' => normalize_text($payload['name'] ?? '', 100),
+        'email' => normalize_text($payload['email'] ?? '', 120),
+        'phone' => normalize_text($payload['phone'] ?? '', 40),
+        'type' => normalize_text($payload['type'] ?? 'Issue', 60),
+        'subject' => normalize_text($payload['subject'] ?? '', 160),
+        'message' => normalize_text($payload['message'] ?? '', 1200),
+        'status' => 'Open',
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+    array_unshift($tickets, $ticket);
+    save_support_tickets($tickets);
+    return $ticket;
+}
+
+function update_support_ticket_status(string $id, string $status): bool
+{
+    $allowed = ['Open', 'In Progress', 'Closed'];
+    if (!in_array($status, $allowed, true)) {
+        return false;
+    }
+    $tickets = read_support_tickets();
+    foreach ($tickets as &$ticket) {
+        if (($ticket['id'] ?? '') === $id) {
+            $ticket['status'] = $status;
+            save_support_tickets($tickets);
+            return true;
+        }
+    }
+    return false;
+}
+
+function support_service_suggestions(string $message): array
+{
+    $message = strtolower($message);
+    $posts = read_blog_posts(true);
+    $matches = [];
+    $topics = [
+        'diabetic' => ['diabetic', 'neuropathy', 'ulcer', 'sugar', 'diabetes'],
+        'insole' => ['insole', 'offload', 'orthotic', 'pressure'],
+        'flat' => ['flat feet', 'arch', 'flatfoot'],
+        'sock' => ['sock', 'socks'],
+        'scan' => ['scan', '3d', 'assessment'],
+        'amputation' => ['amputation', 'partial foot'],
+        'charcot' => ['charcot'],
+        'bunion' => ['bunion', 'hammer', 'wide'],
+    ];
+    foreach ($topics as $topic => $needles) {
+        foreach ($needles as $needle) {
+            if (strpos($message, $needle) !== false) {
+                foreach ($posts as $post) {
+                    $haystack = strtolower(($post['title'] ?? '') . ' ' . ($post['excerpt'] ?? '') . ' ' . ($post['slug'] ?? ''));
+                    if (strpos($haystack, $topic) !== false || strpos($haystack, $needle) !== false) {
+                        $matches[] = ['title' => $post['title'], 'url' => 'blog-post.php?slug=' . $post['slug']];
+                        break 2;
+                    }
+                }
+            }
+        }
+    }
+    return array_slice($matches, 0, 3);
+}
+
+function support_bot_reply(string $message): array
+{
+    $text = strtolower($message);
+    $bugWords = ['bug', 'issue', 'error', 'broken', 'not working', 'problem', 'complaint', 'wrong'];
+    foreach ($bugWords as $word) {
+        if (strpos($text, $word) !== false) {
+            return [
+                'intent' => 'ticket',
+                'reply' => 'I can create a support ticket for this issue. Please share your name, email or phone, and what happened.',
+            ];
+        }
+    }
+    if (preg_match('/book|appointment|visit|fitting|consultation|schedule/', $text)) {
+        return [
+            'intent' => 'booking',
+            'reply' => 'I can help book an appointment. Please provide your name, phone, email, preferred date, preferred time, and visit type.',
+        ];
+    }
+    $serviceWords = ['service', 'shoe', 'diabetic', 'insole', 'sock', 'scan', 'flat', 'ulcer', 'charcot', 'bunion', 'amputation', 'foot', 'orthopaedic', 'orthotic'];
+    foreach ($serviceWords as $word) {
+        if (strpos($text, $word) !== false) {
+            $suggestions = support_service_suggestions($message);
+            return [
+                'intent' => 'service',
+                'reply' => 'Flexi Feet helps with custom diabetic shoes, custom offload insoles, flat feet insoles, diabetic socks, and 3D foot assessment. I can only answer Flexi Feet service questions or help with bookings and support tickets.',
+                'suggestions' => $suggestions,
+            ];
+        }
+    }
+    return [
+        'intent' => 'out_of_scope',
+        'reply' => 'I can only help with Flexi Feet services, appointment booking, or support tickets. For other topics, please contact the team directly.',
+    ];
 }
 
 function read_blog_posts(bool $publishedOnly = false): array
@@ -212,6 +333,12 @@ function save_blog_post(array $payload, ?string $id = null): array
         'content' => trim((string) ($payload['content'] ?? '')),
         'status' => $status,
         'featured_image' => normalize_text($payload['featured_image'] ?? '', 300),
+        'seo_title' => normalize_text($payload['seo_title'] ?? '', 180),
+        'seo_description' => normalize_text($payload['seo_description'] ?? '', 320),
+        'focus_keyword' => normalize_text($payload['focus_keyword'] ?? '', 120),
+        'canonical_url' => normalize_text($payload['canonical_url'] ?? '', 300),
+        'social_image' => normalize_text($payload['social_image'] ?? '', 300),
+        'noindex' => !empty($payload['noindex']) ? '1' : '',
         'updated_at' => $now,
     ];
 
@@ -470,6 +597,64 @@ function page_description(string $value, int $maxLength = 160): string
     return mb_substr($value, 0, $maxLength);
 }
 
+function seo_field(array $source, string $key, string $fallback = ''): string
+{
+    $value = trim((string) ($source[$key] ?? ''));
+    return $value !== '' ? $value : $fallback;
+}
+
+function post_seo_title(array $post): string
+{
+    return seo_field($post, 'seo_title', ($post['title'] ?? 'Flexi Feet Blog') . ' | Flexi Feet');
+}
+
+function post_seo_description(array $post): string
+{
+    return page_description(seo_field($post, 'seo_description', $post['excerpt'] ?? ($post['content'] ?? '')));
+}
+
+function post_social_image(array $post): string
+{
+    return seo_field($post, 'social_image', seo_field($post, 'featured_image', DEFAULT_SOCIAL_IMAGE));
+}
+
+function post_canonical_path(array $post): string
+{
+    return seo_field($post, 'canonical_url', 'blog-post.php?slug=' . ($post['slug'] ?? ''));
+}
+
+function post_noindex(array $post): bool
+{
+    return (($post['noindex'] ?? '') === '1' || ($post['noindex'] ?? false) === true);
+}
+
+function seo_score_post(array $post): array
+{
+    $checks = [
+        'title' => trim((string) ($post['title'] ?? '')) !== '',
+        'slug' => trim((string) ($post['slug'] ?? '')) !== '',
+        'meta' => mb_strlen(post_seo_description($post)) >= 80,
+        'image' => post_social_image($post) !== '',
+        'content' => mb_strlen(strip_tags((string) ($post['content'] ?? ''))) >= 400,
+        'published' => ($post['status'] ?? '') === 'Published',
+        'indexable' => !post_noindex($post),
+    ];
+    $passed = count(array_filter($checks));
+    return [
+        'passed' => $passed,
+        'total' => count($checks),
+        'percent' => (int) round(($passed / max(1, count($checks))) * 100),
+        'checks' => $checks,
+    ];
+}
+
+function render_google_verification(): void
+{
+    if (GOOGLE_SITE_VERIFICATION !== '') {
+        echo '    <meta name="google-site-verification" content="' . e(GOOGLE_SITE_VERIFICATION) . "\">\n";
+    }
+}
+
 function render_seo_tags(string $title, string $description, string $canonicalPath = '', string $image = 'assets/images/flexi-feet-logo.png', string $type = 'website'): void
 {
     $canonical = absolute_url($canonicalPath);
@@ -477,6 +662,7 @@ function render_seo_tags(string $title, string $description, string $canonicalPa
     echo '<title>' . e($title) . "</title>\n";
     echo '    <meta name="description" content="' . e($description) . "\">\n";
     echo '    <link rel="canonical" href="' . e($canonical) . "\">\n";
+    render_google_verification();
     echo '    <meta property="og:title" content="' . e($title) . "\">\n";
     echo '    <meta property="og:description" content="' . e($description) . "\">\n";
     echo '    <meta property="og:image" content="' . e($imageUrl) . "\">\n";
@@ -498,6 +684,236 @@ function render_google_analytics(): void
     $id = e(GA_MEASUREMENT_ID);
     echo '<script async src="https://www.googletagmanager.com/gtag/js?id=' . $id . '"></script>' . "\n";
     echo "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','" . $id . "');</script>\n";
+}
+
+function current_seo_settings(): array
+{
+    return [
+        'GA_MEASUREMENT_ID' => GA_MEASUREMENT_ID,
+        'GOOGLE_SITE_VERIFICATION' => GOOGLE_SITE_VERIFICATION,
+        'DEFAULT_SEO_TITLE' => DEFAULT_SEO_TITLE,
+        'DEFAULT_SEO_DESCRIPTION' => DEFAULT_SEO_DESCRIPTION,
+        'DEFAULT_SOCIAL_IMAGE' => DEFAULT_SOCIAL_IMAGE,
+        'GOOGLE_SERVICE_ACCOUNT_EMAIL' => GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_SET' => GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY !== '',
+        'GA4_PROPERTY_ID' => GA4_PROPERTY_ID,
+        'SEARCH_CONSOLE_SITE_URL' => SEARCH_CONSOLE_SITE_URL,
+    ];
+}
+
+function base64url_encode_string(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function google_service_account_ready(): bool
+{
+    return GOOGLE_SERVICE_ACCOUNT_EMAIL !== '' && GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY !== '';
+}
+
+function google_http_post(string $url, array $headers, string $body): array
+{
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'content' => $body,
+            'timeout' => 30,
+            'ignore_errors' => true,
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    $status = 0;
+    foreach (($http_response_header ?? []) as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+            $status = (int) $matches[1];
+            break;
+        }
+    }
+    $data = json_decode((string) $raw, true);
+    return [
+        'ok' => $status >= 200 && $status < 300,
+        'status' => $status,
+        'data' => is_array($data) ? $data : [],
+        'raw' => (string) $raw,
+    ];
+}
+
+function google_service_account_token(array $scopes): array
+{
+    if (!google_service_account_ready()) {
+        return ['ok' => false, 'message' => 'Add a Google service account email and private key in Settings.'];
+    }
+    if (!function_exists('openssl_sign')) {
+        return ['ok' => false, 'message' => 'OpenSSL is not enabled on this hosting account.'];
+    }
+
+    $now = time();
+    $header = base64url_encode_string(json_encode(['alg' => 'RS256', 'typ' => 'JWT'], JSON_UNESCAPED_SLASHES));
+    $claim = base64url_encode_string(json_encode([
+        'iss' => GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        'scope' => implode(' ', $scopes),
+        'aud' => 'https://oauth2.googleapis.com/token',
+        'iat' => $now,
+        'exp' => $now + 3600,
+    ], JSON_UNESCAPED_SLASHES));
+    $unsigned = $header . '.' . $claim;
+    $privateKey = str_replace('\\n', "\n", GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+    $signed = openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    if (!$signed) {
+        return ['ok' => false, 'message' => 'Google private key could not sign the request.'];
+    }
+
+    $response = google_http_post(
+        'https://oauth2.googleapis.com/token',
+        ['Content-Type: application/x-www-form-urlencoded'],
+        http_build_query([
+            'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            'assertion' => $unsigned . '.' . base64url_encode_string($signature),
+        ])
+    );
+    if (!$response['ok']) {
+        return ['ok' => false, 'message' => $response['data']['error_description'] ?? 'Google token request failed.'];
+    }
+
+    return ['ok' => true, 'token' => (string) ($response['data']['access_token'] ?? '')];
+}
+
+function google_api_json_post(string $url, array $payload, array $scopes): array
+{
+    $token = google_service_account_token($scopes);
+    if (!$token['ok']) {
+        return $token;
+    }
+    $response = google_http_post(
+        $url,
+        [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $token['token'],
+        ],
+        json_encode($payload, JSON_UNESCAPED_SLASHES)
+    );
+    if (!$response['ok']) {
+        $message = $response['data']['error']['message'] ?? 'Google API request failed.';
+        return ['ok' => false, 'message' => $message, 'status' => $response['status']];
+    }
+    return ['ok' => true, 'data' => $response['data']];
+}
+
+function google_seo_report(bool $force = false): array
+{
+    $cacheFile = STORAGE_DIR . '/google-seo-cache.json';
+    if (!$force && is_file($cacheFile) && (time() - filemtime($cacheFile)) < 21600) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($cached)) {
+            $cached['cached'] = true;
+            return $cached;
+        }
+    }
+
+    $report = [
+        'ok' => google_service_account_ready(),
+        'cached' => false,
+        'message' => google_service_account_ready() ? '' : 'Connect Google in Settings to fetch Analytics and Search Console data.',
+        'ga4' => ['ok' => false, 'metrics' => [], 'pages' => [], 'message' => 'GA4 Property ID is not configured.'],
+        'search_console' => ['ok' => false, 'metrics' => [], 'queries' => [], 'pages' => [], 'message' => 'Search Console Site URL is not configured.'],
+    ];
+    if (!$report['ok']) {
+        return $report;
+    }
+
+    $endDate = date('Y-m-d', strtotime('-3 days'));
+    $startDate = date('Y-m-d', strtotime('-31 days'));
+
+    if (GA4_PROPERTY_ID !== '') {
+        $ga = google_api_json_post(
+            'https://analyticsdata.googleapis.com/v1beta/properties/' . rawurlencode(GA4_PROPERTY_ID) . ':runReport',
+            [
+                'dateRanges' => [['startDate' => $startDate, 'endDate' => $endDate]],
+                'dimensions' => [['name' => 'pagePath']],
+                'metrics' => [['name' => 'activeUsers'], ['name' => 'sessions'], ['name' => 'screenPageViews']],
+                'orderBys' => [['metric' => ['metricName' => 'screenPageViews'], 'desc' => true]],
+                'limit' => 8,
+            ],
+            ['https://www.googleapis.com/auth/analytics.readonly']
+        );
+        if ($ga['ok']) {
+            $totals = $ga['data']['totals'][0]['metricValues'] ?? [];
+            $report['ga4'] = [
+                'ok' => true,
+                'metrics' => [
+                    'activeUsers' => (int) ($totals[0]['value'] ?? 0),
+                    'sessions' => (int) ($totals[1]['value'] ?? 0),
+                    'views' => (int) ($totals[2]['value'] ?? 0),
+                ],
+                'pages' => array_map(fn($row) => [
+                    'path' => $row['dimensionValues'][0]['value'] ?? '',
+                    'users' => (int) ($row['metricValues'][0]['value'] ?? 0),
+                    'sessions' => (int) ($row['metricValues'][1]['value'] ?? 0),
+                    'views' => (int) ($row['metricValues'][2]['value'] ?? 0),
+                ], $ga['data']['rows'] ?? []),
+                'message' => '',
+            ];
+        } else {
+            $report['ga4']['message'] = $ga['message'];
+        }
+    }
+
+    if (SEARCH_CONSOLE_SITE_URL !== '') {
+        $siteUrl = rtrim(SEARCH_CONSOLE_SITE_URL, '/') . '/';
+        $queryPayload = [
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'dimensions' => ['query'],
+            'rowLimit' => 8,
+        ];
+        $pagePayload = $queryPayload;
+        $pagePayload['dimensions'] = ['page'];
+        $queryData = google_api_json_post(
+            'https://www.googleapis.com/webmasters/v3/sites/' . rawurlencode($siteUrl) . '/searchAnalytics/query',
+            $queryPayload,
+            ['https://www.googleapis.com/auth/webmasters.readonly']
+        );
+        $pageData = google_api_json_post(
+            'https://www.googleapis.com/webmasters/v3/sites/' . rawurlencode($siteUrl) . '/searchAnalytics/query',
+            $pagePayload,
+            ['https://www.googleapis.com/auth/webmasters.readonly']
+        );
+        if ($queryData['ok']) {
+            $rows = $queryData['data']['rows'] ?? [];
+            $clicks = array_sum(array_map(fn($row) => (float) ($row['clicks'] ?? 0), $rows));
+            $impressions = array_sum(array_map(fn($row) => (float) ($row['impressions'] ?? 0), $rows));
+            $report['search_console'] = [
+                'ok' => true,
+                'metrics' => [
+                    'clicks' => (int) $clicks,
+                    'impressions' => (int) $impressions,
+                    'ctr' => $impressions > 0 ? round(($clicks / $impressions) * 100, 1) : 0,
+                    'position' => count($rows) ? round(array_sum(array_map(fn($row) => (float) ($row['position'] ?? 0), $rows)) / count($rows), 1) : 0,
+                ],
+                'queries' => array_map(fn($row) => [
+                    'label' => $row['keys'][0] ?? '',
+                    'clicks' => (int) ($row['clicks'] ?? 0),
+                    'impressions' => (int) ($row['impressions'] ?? 0),
+                    'position' => round((float) ($row['position'] ?? 0), 1),
+                ], $rows),
+                'pages' => array_map(fn($row) => [
+                    'label' => $row['keys'][0] ?? '',
+                    'clicks' => (int) ($row['clicks'] ?? 0),
+                    'impressions' => (int) ($row['impressions'] ?? 0),
+                    'position' => round((float) ($row['position'] ?? 0), 1),
+                ], ($pageData['data']['rows'] ?? [])),
+                'message' => '',
+            ];
+        } else {
+            $report['search_console']['message'] = $queryData['message'];
+        }
+    }
+
+    if ($report['ga4']['ok'] || $report['search_console']['ok']) {
+        file_put_contents($cacheFile, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    }
+    return $report;
 }
 
 function smtp_configured(): bool
@@ -633,6 +1049,14 @@ function current_mail_settings(): array
         'BOOKING_OWNER_EMAIL' => BOOKING_OWNER_EMAIL,
         'SMTP_PASSWORD_SET' => SMTP_PASSWORD !== '',
         'GA_MEASUREMENT_ID' => GA_MEASUREMENT_ID,
+        'GOOGLE_SITE_VERIFICATION' => GOOGLE_SITE_VERIFICATION,
+        'DEFAULT_SEO_TITLE' => DEFAULT_SEO_TITLE,
+        'DEFAULT_SEO_DESCRIPTION' => DEFAULT_SEO_DESCRIPTION,
+        'DEFAULT_SOCIAL_IMAGE' => DEFAULT_SOCIAL_IMAGE,
+        'GOOGLE_SERVICE_ACCOUNT_EMAIL' => GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_SET' => GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY !== '',
+        'GA4_PROPERTY_ID' => GA4_PROPERTY_ID,
+        'SEARCH_CONSOLE_SITE_URL' => SEARCH_CONSOLE_SITE_URL,
         'GOOGLE_AI_API_KEY_SET' => GOOGLE_AI_API_KEY !== '',
         'GOOGLE_AI_MODEL' => GOOGLE_AI_MODEL,
         'AUTOMATION_TOKEN_SET' => AUTOMATION_TOKEN !== '',
@@ -651,6 +1075,14 @@ function save_mail_settings(array $payload): array
         'SMTP_FROM_NAME' => normalize_text($payload['SMTP_FROM_NAME'] ?? BUSINESS_NAME, 180),
         'BOOKING_OWNER_EMAIL' => normalize_text($payload['BOOKING_OWNER_EMAIL'] ?? '', 180),
         'GA_MEASUREMENT_ID' => normalize_text($payload['GA_MEASUREMENT_ID'] ?? '', 40),
+        'GOOGLE_SITE_VERIFICATION' => normalize_text($payload['GOOGLE_SITE_VERIFICATION'] ?? '', 220),
+        'DEFAULT_SEO_TITLE' => normalize_text($payload['DEFAULT_SEO_TITLE'] ?? DEFAULT_SEO_TITLE, 180),
+        'DEFAULT_SEO_DESCRIPTION' => normalize_text($payload['DEFAULT_SEO_DESCRIPTION'] ?? DEFAULT_SEO_DESCRIPTION, 320),
+        'DEFAULT_SOCIAL_IMAGE' => normalize_text($payload['DEFAULT_SOCIAL_IMAGE'] ?? DEFAULT_SOCIAL_IMAGE, 300),
+        'GOOGLE_SERVICE_ACCOUNT_EMAIL' => normalize_text($payload['GOOGLE_SERVICE_ACCOUNT_EMAIL'] ?? '', 220),
+        'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY' => (string) ($payload['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] ?? ''),
+        'GA4_PROPERTY_ID' => normalize_text($payload['GA4_PROPERTY_ID'] ?? '', 80),
+        'SEARCH_CONSOLE_SITE_URL' => normalize_text($payload['SEARCH_CONSOLE_SITE_URL'] ?? SITE_URL, 220),
         'GOOGLE_AI_API_KEY' => (string) ($payload['GOOGLE_AI_API_KEY'] ?? ''),
         'GOOGLE_AI_MODEL' => normalize_text($payload['GOOGLE_AI_MODEL'] ?? 'gemma-4-31b-it', 80),
         'AUTOMATION_TOKEN' => (string) ($payload['AUTOMATION_TOKEN'] ?? ''),
@@ -676,6 +1108,9 @@ function save_mail_settings(array $payload): array
     if ($settings['GOOGLE_AI_API_KEY'] === '') {
         $settings['GOOGLE_AI_API_KEY'] = GOOGLE_AI_API_KEY;
     }
+    if ($settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] === '') {
+        $settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] = GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+    }
     if ($settings['AUTOMATION_TOKEN'] === '') {
         $settings['AUTOMATION_TOKEN'] = AUTOMATION_TOKEN;
     }
@@ -691,6 +1126,14 @@ function save_mail_settings(array $payload): array
     $content .= "define('SMTP_FROM_NAME', " . var_export($settings['SMTP_FROM_NAME'], true) . ");\n";
     $content .= "define('BOOKING_OWNER_EMAIL', " . var_export($settings['BOOKING_OWNER_EMAIL'], true) . ");\n";
     $content .= "define('GA_MEASUREMENT_ID', " . var_export($settings['GA_MEASUREMENT_ID'], true) . ");\n";
+    $content .= "define('GOOGLE_SITE_VERIFICATION', " . var_export($settings['GOOGLE_SITE_VERIFICATION'], true) . ");\n";
+    $content .= "define('DEFAULT_SEO_TITLE', " . var_export($settings['DEFAULT_SEO_TITLE'], true) . ");\n";
+    $content .= "define('DEFAULT_SEO_DESCRIPTION', " . var_export($settings['DEFAULT_SEO_DESCRIPTION'], true) . ");\n";
+    $content .= "define('DEFAULT_SOCIAL_IMAGE', " . var_export($settings['DEFAULT_SOCIAL_IMAGE'], true) . ");\n";
+    $content .= "define('GOOGLE_SERVICE_ACCOUNT_EMAIL', " . var_export($settings['GOOGLE_SERVICE_ACCOUNT_EMAIL'], true) . ");\n";
+    $content .= "define('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', " . var_export($settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'], true) . ");\n";
+    $content .= "define('GA4_PROPERTY_ID', " . var_export($settings['GA4_PROPERTY_ID'], true) . ");\n";
+    $content .= "define('SEARCH_CONSOLE_SITE_URL', " . var_export($settings['SEARCH_CONSOLE_SITE_URL'], true) . ");\n";
     $content .= "define('GOOGLE_AI_API_KEY', " . var_export($settings['GOOGLE_AI_API_KEY'], true) . ");\n";
     $content .= "define('GOOGLE_AI_MODEL', " . var_export($settings['GOOGLE_AI_MODEL'], true) . ");\n";
     $content .= "define('AUTOMATION_TOKEN', " . var_export($settings['AUTOMATION_TOKEN'], true) . ");\n";

@@ -33,6 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'content' => $_POST['content'] ?? '',
             'status' => $_POST['status'] ?? 'Draft',
             'featured_image' => $featuredImage,
+            'seo_title' => $_POST['seo_title'] ?? '',
+            'seo_description' => $_POST['seo_description'] ?? '',
+            'focus_keyword' => $_POST['focus_keyword'] ?? '',
+            'canonical_url' => $_POST['canonical_url'] ?? '',
+            'social_image' => $_POST['social_image'] ?? '',
+            'noindex' => $_POST['noindex'] ?? '',
         ], $post['id'] ?? null);
         $saved = true;
         $id = $post['id'];
@@ -48,7 +54,14 @@ $post = $post ?: [
     'content' => '',
     'status' => 'Draft',
     'featured_image' => '',
+    'seo_title' => '',
+    'seo_description' => '',
+    'focus_keyword' => '',
+    'canonical_url' => '',
+    'social_image' => '',
+    'noindex' => '',
 ];
+$seoScore = seo_score_post($post);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -83,10 +96,49 @@ $post = $post ?: [
                 <textarea name="excerpt" rows="3" placeholder="Short blog summary for the archive page"><?= e($post['excerpt']) ?></textarea>
                 <label>Content</label>
                 <textarea class="content-editor" name="content" rows="18" placeholder="Write the post content here..."><?= e($post['content']) ?></textarea>
+                <div class="seo-editor-panel">
+                    <div class="seo-editor-heading">
+                        <div>
+                            <h2>Google SEO</h2>
+                            <p>Control how this post is understood by Google and previewed in search/social results.</p>
+                        </div>
+                        <span class="seo-score-badge"><?= $seoScore['percent'] ?>%</span>
+                    </div>
+                    <label>SEO Title</label>
+                    <input type="text" name="seo_title" value="<?= e($post['seo_title']) ?>" maxlength="180" placeholder="<?= e(($post['title'] ?: 'Post title') . ' | Flexi Feet') ?>">
+                    <p class="field-help">Aim for a clear title around 50-65 characters. Put the main topic first.</p>
+                    <label>Meta Description</label>
+                    <textarea name="seo_description" rows="3" maxlength="320" placeholder="Write a useful Google snippet for this post."><?= e($post['seo_description']) ?></textarea>
+                    <p class="field-help">Google may rewrite snippets, but a helpful description can improve click-through.</p>
+                    <label>Focus Keyword</label>
+                    <input type="text" name="focus_keyword" value="<?= e($post['focus_keyword']) ?>" placeholder="example: diabetic shoes malaysia">
+                    <label>Canonical URL Override</label>
+                    <input type="text" name="canonical_url" value="<?= e($post['canonical_url']) ?>" placeholder="Leave blank to use the post URL">
+                    <label>Social Image</label>
+                    <input type="text" name="social_image" value="<?= e($post['social_image']) ?>" placeholder="Leave blank to use featured image">
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="noindex" value="1" <?= post_noindex($post) ? 'checked' : '' ?>>
+                        Hide this post from Google indexing
+                    </label>
+                    <div class="google-preview">
+                        <span><?= e(parse_url(SITE_URL, PHP_URL_HOST) ?: 'flexifeet.net') ?> › blog</span>
+                        <strong><?= e(post_seo_title($post)) ?></strong>
+                        <p><?= e(post_seo_description($post) ?: 'Add a meta description to control the search preview.') ?></p>
+                    </div>
+                </div>
             </section>
             <aside class="editor-side">
                 <div class="wp-panel side-panel">
                     <h2>Publish</h2>
+                    <div class="seo-checklist-mini">
+                        <strong>SEO readiness: <?= $seoScore['passed'] ?>/<?= $seoScore['total'] ?></strong>
+                        <ul>
+                            <li class="<?= $seoScore['checks']['meta'] ? 'ok' : '' ?>">Meta description</li>
+                            <li class="<?= $seoScore['checks']['image'] ? 'ok' : '' ?>">Social image</li>
+                            <li class="<?= $seoScore['checks']['content'] ? 'ok' : '' ?>">Useful content length</li>
+                            <li class="<?= $seoScore['checks']['indexable'] ? 'ok' : '' ?>">Indexable</li>
+                        </ul>
+                    </div>
                     <label>Status</label>
                     <select name="status">
                         <option value="Draft" <?= $post['status'] === 'Draft' ? 'selected' : '' ?>>Draft</option>

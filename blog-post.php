@@ -12,18 +12,21 @@ http_response_code($post ? 200 : 404);
     <link rel="icon" type="image/png" href="assets/images/favicon.png">
     <?php if ($post): ?>
         <?php render_seo_tags(
-            $post['title'] . ' | Flexi Feet',
-            page_description($post['excerpt'] ?: $post['content']),
-            'blog-post.php?slug=' . $post['slug'],
-            $post['featured_image'] ?: 'assets/images/banner-foot-problems.jpg',
+            post_seo_title($post),
+            post_seo_description($post),
+            post_canonical_path($post),
+            post_social_image($post),
             'article'
         ); ?>
+        <?php if (post_noindex($post)): ?>
+            <meta name="robots" content="noindex,follow">
+        <?php endif; ?>
         <?php render_json_ld([
             '@context' => 'https://schema.org',
             '@type' => 'BlogPosting',
             'headline' => $post['title'],
-            'description' => page_description($post['excerpt'] ?: $post['content']),
-            'image' => absolute_url($post['featured_image'] ?: 'assets/images/banner-foot-problems.jpg'),
+            'description' => post_seo_description($post),
+            'image' => absolute_url(post_social_image($post)),
             'datePublished' => $post['published_at'] ?: $post['created_at'],
             'dateModified' => $post['updated_at'] ?? ($post['published_at'] ?: $post['created_at']),
             'author' => ['@type' => 'Organization', 'name' => BUSINESS_NAME],

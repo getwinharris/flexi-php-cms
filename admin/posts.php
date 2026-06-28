@@ -44,6 +44,7 @@ $drafts = count(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'D
                     <tr>
                         <th>Title</th>
                         <th>Status</th>
+                        <th>SEO</th>
                         <th>Slug</th>
                         <th>Date</th>
                         <th>Actions</th>
@@ -61,6 +62,8 @@ $drafts = count(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'D
                                 </div>
                             </td>
                             <td><span class="wp-status <?= strtolower(e($post['status'])) ?>"><?= e($post['status']) ?></span></td>
+                            <?php $score = seo_score_post($post); ?>
+                            <td><span class="seo-score-pill <?= $score['percent'] >= 80 ? 'good' : ($score['percent'] >= 55 ? 'warn' : 'bad') ?>"><?= $score['percent'] ?>%</span></td>
                             <td><?= e($post['slug']) ?></td>
                             <td><?= e($post['updated_at'] ?? '') ?></td>
                             <td>
@@ -74,7 +77,7 @@ $drafts = count(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'D
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($posts)): ?>
-                        <tr><td colspan="5" class="empty-cell">No posts yet. Create your first blog post.</td></tr>
+                        <tr><td colspan="6" class="empty-cell">No posts yet. Create your first blog post.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

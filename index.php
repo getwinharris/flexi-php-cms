@@ -552,6 +552,51 @@ $faqs = [
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
 </div>
 
+<section class="support-bot" data-support-bot aria-label="Flexi Feet support bot">
+    <button class="support-bot-toggle" type="button" data-support-toggle aria-expanded="false">
+        <span>Support</span>
+    </button>
+    <div class="support-bot-panel" data-support-panel hidden>
+        <div class="support-bot-header">
+            <div>
+                <strong>Flexi Feet Support Agent</strong>
+                <span>Grounded in Flexi Feet services, blogs, bookings, and issue tickets.</span>
+            </div>
+            <button type="button" data-support-toggle aria-label="Close support">×</button>
+        </div>
+        <div class="support-bot-messages" data-support-messages>
+            <div class="bot-message">Ask about custom diabetic shoes, offload insoles, foot scanning, diabetic socks, appointment booking, or report a website/service issue.</div>
+        </div>
+        <div class="support-bot-actions">
+            <button type="button" data-support-mode="booking">Book Fitting</button>
+            <button type="button" data-support-mode="ticket">Create Ticket</button>
+        </div>
+        <form class="support-detail-form" data-support-detail hidden>
+            <strong data-support-detail-title>Details</strong>
+            <input type="hidden" name="action" value="">
+            <input type="text" name="name" placeholder="Name">
+            <input type="email" name="email" placeholder="Email">
+            <input type="tel" name="phone" placeholder="Phone">
+            <input type="date" name="preferred_date" data-booking-field>
+            <input type="time" name="preferred_time" data-booking-field>
+            <select name="visit_type" data-booking-field>
+                <option>Foot Assessment</option>
+                <option>Custom Shoes / Footwear Fitting</option>
+                <option>Customised Insole Assessment</option>
+                <option>Pressure Sensor Scan</option>
+                <option>Follow-up</option>
+            </select>
+            <input type="text" name="subject" placeholder="Issue subject" data-ticket-field>
+            <textarea name="message" rows="3" placeholder="Message"></textarea>
+            <button type="submit">Submit</button>
+        </form>
+        <form class="support-bot-form" data-support-form>
+            <textarea name="message" rows="2" placeholder="Ask about services, blogs, booking, or report an issue" required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+</section>
+
 <a class="whatsapp-chat" href="https://wa.me/60166055477?text=inquiry%20from%20flexifeet.new%20web%20portal" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
     <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16.04 3C8.87 3 3.04 8.8 3.04 15.92c0 2.28.6 4.51 1.74 6.47L3 29l6.79-1.76a13.05 13.05 0 0 0 6.25 1.59c7.17 0 13-5.8 13-12.92S23.21 3 16.04 3zm0 23.64c-1.93 0-3.82-.52-5.48-1.5l-.39-.23-4.03 1.04 1.08-3.91-.25-.4a10.61 10.61 0 0 1-1.63-5.72c0-5.91 4.8-10.73 10.7-10.73s10.7 4.82 10.7 10.73-4.8 10.72-10.7 10.72zm5.87-8.03c-.32-.16-1.9-.94-2.2-1.05-.3-.1-.51-.16-.73.16-.21.32-.84 1.05-1.03 1.27-.19.21-.38.24-.7.08-.32-.16-1.36-.5-2.59-1.6a9.7 9.7 0 0 1-1.79-2.22c-.19-.32-.02-.5.14-.66.15-.15.32-.38.49-.57.16-.19.21-.32.32-.54.1-.21.05-.4-.03-.56-.08-.16-.73-1.75-1-2.4-.26-.63-.53-.54-.73-.55h-.62c-.21 0-.56.08-.86.4-.3.32-1.13 1.1-1.13 2.67s1.16 3.1 1.32 3.31c.16.21 2.29 3.48 5.54 4.88.77.33 1.38.53 1.85.68.78.25 1.48.21 2.04.13.62-.09 1.9-.78 2.17-1.53.27-.75.27-1.4.19-1.53-.08-.13-.29-.21-.61-.37z"/></svg>
 </a>
