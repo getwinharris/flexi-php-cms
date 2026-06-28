@@ -545,6 +545,12 @@ $faqs = [
 
 <section class="support-bot" data-support-bot aria-label="Flexi Feet support bot">
     <button class="support-bot-toggle" type="button" data-support-toggle aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3.25c-4.7 0-8.5 3.12-8.5 6.98 0 2.18 1.25 4.16 3.21 5.45l-.54 3.07 3.23-1.66c.82.18 1.7.27 2.6.27 4.7 0 8.5-3.13 8.5-6.99S16.7 3.25 12 3.25Z"/>
+            <path d="M9.05 10.36h.01M12 10.36h.01M14.95 10.36h.01"/>
+            <path d="M8.7 13.4c1.86 1.12 4.74 1.12 6.6 0"/>
+            <path d="M18.8 4.7l.55-1.45.55 1.45 1.45.55-1.45.55-.55 1.45-.55-1.45-1.45-.55 1.45-.55Z"/>
+        </svg>
         <span>Support</span>
     </button>
     <div class="support-bot-panel" data-support-panel hidden>
