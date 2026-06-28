@@ -5,6 +5,7 @@ define('BUSINESS_NAME', 'Flexi Feet Sdn Bhd');
 define('BUSINESS_PHONE', '+60 16-605 5477');
 define('BUSINESS_EMAIL', 'flexifeetsdnbhd@gmail.com');
 define('BUSINESS_ADDRESS', 'G17, Residency Awani 2, 1A, Jalan 2/12, Kampung Batu Muda, Sentul, 51100 Kuala Lumpur, Malaysia');
+define('SITE_URL', 'https://flexifeet.net');
 
 define('STORAGE_DIR', __DIR__ . '/../storage');
 define('APPOINTMENTS_FILE', STORAGE_DIR . '/appointments.json');
@@ -28,3 +29,4 @@ defined('SMTP_PASSWORD') || define('SMTP_PASSWORD', getenv('FLEXIFEET_SMTP_PASSW
 defined('SMTP_FROM_EMAIL') || define('SMTP_FROM_EMAIL', getenv('FLEXIFEET_SMTP_FROM_EMAIL') ?: SMTP_USERNAME);
 defined('SMTP_FROM_NAME') || define('SMTP_FROM_NAME', getenv('FLEXIFEET_SMTP_FROM_NAME') ?: BUSINESS_NAME);
 defined('BOOKING_OWNER_EMAIL') || define('BOOKING_OWNER_EMAIL', getenv('FLEXIFEET_BOOKING_OWNER_EMAIL') ?: SMTP_USERNAME);
+defined('GA_MEASUREMENT_ID') || define('GA_MEASUREMENT_ID', getenv('FLEXIFEET_GA_MEASUREMENT_ID') ?: '');

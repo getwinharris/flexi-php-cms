@@ -46,15 +46,44 @@ $faqs = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flexi Feet | Custom Diabetic & Orthopaedic Footwear Malaysia</title>
     <link rel="icon" type="image/png" href="assets/images/favicon.png">
-    <meta name="description" content="Flexi Feet Sdn Bhd specializes in custom-made diabetic and orthopaedic shoes using 3D Italian foot scanning technology in Sentul, Kuala Lumpur.">
-    
-    <!-- Open Graph / SEO -->
-    <meta property="og:title" content="Flexi Feet | Custom Diabetic & Orthopaedic Footwear">
-    <meta property="og:description" content="Medically approved, handcrafted custom shoes for diabetic neuropathy and orthopaedic comfort.">
-    <meta property="og:image" content="assets/images/flexi-feet-logo.png">
-    <meta property="og:type" content="website">
+    <?php render_seo_tags(
+        'Custom Diabetic Shoes & Orthopaedic Insoles Malaysia | Flexi Feet',
+        'Flexi Feet in Sentul, Kuala Lumpur creates custom diabetic shoes, offload insoles, flat feet insoles and diabetic socks using 3D foot assessment.',
+        '',
+        'assets/images/shoe-web.png'
+    ); ?>
+    <?php render_json_ld([
+        '@context' => 'https://schema.org',
+        '@type' => 'LocalBusiness',
+        'name' => BUSINESS_NAME,
+        'url' => absolute_url(''),
+        'telephone' => BUSINESS_PHONE,
+        'email' => BUSINESS_EMAIL,
+        'address' => BUSINESS_ADDRESS,
+        'image' => absolute_url('assets/images/flexi-feet-logo.png'),
+        'areaServed' => ['Kuala Lumpur', 'Sentul', 'Malaysia'],
+        'sameAs' => [
+            'https://www.instagram.com/flexifeetmalaysia/',
+            'https://www.facebook.com/flexifeetmalaysia',
+            'https://www.youtube.com/@flexifeetmalaysia'
+        ],
+        'makesOffer' => [
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Custom diabetic shoes']],
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Custom offload insoles']],
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => '3D foot assessment']]
+        ]
+    ]); ?>
+    <?php render_json_ld([
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => array_map(fn($faq) => [
+            '@type' => 'Question',
+            'name' => $faq[0],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq[1]]
+        ], array_slice($faqs, 0, 8))
+    ]); ?>
+    <?php render_google_analytics(); ?>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <link rel="stylesheet" href="assets/styles.css">

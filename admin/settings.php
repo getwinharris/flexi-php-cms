@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'SMTP_FROM_EMAIL' => normalize_text($_POST['SMTP_FROM_EMAIL'] ?? '', 180),
                 'SMTP_FROM_NAME' => normalize_text($_POST['SMTP_FROM_NAME'] ?? '', 180),
                 'BOOKING_OWNER_EMAIL' => normalize_text($_POST['BOOKING_OWNER_EMAIL'] ?? '', 180),
+                'GA_MEASUREMENT_ID' => normalize_text($_POST['GA_MEASUREMENT_ID'] ?? '', 40),
                 'SMTP_PASSWORD_SET' => true,
             ]);
         } else {
@@ -90,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label>Booking Owner Email</label>
                     <input type="email" name="BOOKING_OWNER_EMAIL" value="<?= e($settings['BOOKING_OWNER_EMAIL']) ?>" required>
+                </div>
+                <div>
+                    <label>Google Analytics Measurement ID</label>
+                    <input type="text" name="GA_MEASUREMENT_ID" value="<?= e($settings['GA_MEASUREMENT_ID']) ?>" placeholder="G-XXXXXXXXXX">
                 </div>
             </div>
             <button class="wp-button primary" type="submit">Save Settings</button>

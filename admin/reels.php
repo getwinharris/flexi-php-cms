@@ -24,8 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Reel order saved.';
         } else {
             $url = sanitize_external_url((string) ($_POST['url'] ?? ''));
-            if ($url === '' || !is_instagram_url($url)) {
-                $error = 'Enter a valid Instagram Reel URL.';
+            if ($url === '' || !is_social_reel_url($url)) {
+                $error = 'Enter a valid Instagram Reel or YouTube Shorts URL.';
             } else {
                 $thumbnail = normalize_text($_POST['thumbnail'] ?? '', 300);
                 if (isset($_FILES['thumbnail_upload'])) {
@@ -80,7 +80,7 @@ $editing = $editing ?: [
         <div class="wp-topbar">
             <div>
                 <h1>Instagram Reels</h1>
-                <p>Add Reel URLs, attach thumbnails, and drag to control website order.</p>
+                <p>Add Instagram Reel URLs, attach thumbnails, and drag to control website order. Existing YouTube Shorts remain editable.</p>
             </div>
             <a href="reels.php" class="wp-button">Add New</a>
         </div>
@@ -98,14 +98,14 @@ $editing = $editing ?: [
                     <input type="hidden" name="sort_order" value="<?= e((string) $editing['sort_order']) ?>">
                     <label>Title</label>
                     <input type="text" name="title" value="<?= e($editing['title']) ?>" placeholder="Patient story, product demo, workshop reel">
-                    <label>Instagram Reel URL</label>
-                    <input type="url" name="url" value="<?= e($editing['url']) ?>" placeholder="https://www.instagram.com/reel/..." required>
+                    <label>Reel URL</label>
+                    <input type="url" name="url" value="<?= e($editing['url']) ?>" placeholder="https://www.instagram.com/reel/... or https://www.youtube.com/shorts/..." required>
                     <label>Thumbnail Path</label>
                     <input type="text" name="thumbnail" value="<?= e($editing['thumbnail']) ?>" placeholder="assets/uploads/2026/06/reel.jpg">
                     <label>Upload Thumbnail</label>
                     <input type="file" name="thumbnail_upload" accept="image/*">
                     <?php if (!empty($editing['thumbnail'])): ?>
-                        <img class="media-preview" src="../<?= e($editing['thumbnail']) ?>" alt="">
+                        <img class="media-preview" src="<?= e(admin_media_src($editing['thumbnail'])) ?>" alt="">
                     <?php endif; ?>
                     <label>Status</label>
                     <select name="status">
@@ -137,7 +137,7 @@ $editing = $editing ?: [
                             <div class="sortable-item" draggable="true" data-id="<?= e($reel['id']) ?>">
                                 <span class="drag-handle">::</span>
                                 <?php if (!empty($reel['thumbnail'])): ?>
-                                    <img src="../<?= e($reel['thumbnail']) ?>" alt="">
+                                    <img src="<?= e(admin_media_src($reel['thumbnail'])) ?>" alt="">
                                 <?php endif; ?>
                                 <div>
                                     <strong><?= e($reel['title'] ?: 'Untitled Reel') ?></strong>

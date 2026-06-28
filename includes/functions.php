@@ -264,6 +264,15 @@ function is_instagram_url(string $url): bool
     return $host === 'instagram.com' || $host === 'www.instagram.com';
 }
 
+function is_social_reel_url(string $url): bool
+{
+    if (is_instagram_url($url)) {
+        return true;
+    }
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    return in_array($host, ['youtube.com', 'www.youtube.com', 'youtu.be'], true);
+}
+
 function read_reels(bool $activeOnly = false): array
 {
     $reels = read_json_file(REELS_FILE, 'reels');
@@ -436,6 +445,61 @@ function render_post_content(string $content): string
     return $html;
 }
 
+function absolute_url(string $path = ''): string
+{
+    if ($path === '') {
+        return rtrim(SITE_URL, '/');
+    }
+    if (preg_match('/^https?:\/\//', $path)) {
+        return $path;
+    }
+    return rtrim(SITE_URL, '/') . '/' . ltrim($path, '/');
+}
+
+function admin_media_src(string $path): string
+{
+    if (preg_match('/^https?:\/\//', $path)) {
+        return $path;
+    }
+    return '../' . ltrim($path, '/');
+}
+
+function page_description(string $value, int $maxLength = 160): string
+{
+    $value = trim(preg_replace('/\s+/', ' ', strip_tags($value)) ?? '');
+    return mb_substr($value, 0, $maxLength);
+}
+
+function render_seo_tags(string $title, string $description, string $canonicalPath = '', string $image = 'assets/images/flexi-feet-logo.png', string $type = 'website'): void
+{
+    $canonical = absolute_url($canonicalPath);
+    $imageUrl = absolute_url($image);
+    echo '<title>' . e($title) . "</title>\n";
+    echo '    <meta name="description" content="' . e($description) . "\">\n";
+    echo '    <link rel="canonical" href="' . e($canonical) . "\">\n";
+    echo '    <meta property="og:title" content="' . e($title) . "\">\n";
+    echo '    <meta property="og:description" content="' . e($description) . "\">\n";
+    echo '    <meta property="og:image" content="' . e($imageUrl) . "\">\n";
+    echo '    <meta property="og:url" content="' . e($canonical) . "\">\n";
+    echo '    <meta property="og:type" content="' . e($type) . "\">\n";
+    echo '    <meta name="twitter:card" content="summary_large_image">' . "\n";
+}
+
+function render_json_ld(array $data): void
+{
+    echo '<script type="application/ld+json">' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>' . "\n";
+}
+
+function render_google_analytics(): void
+{
+    if (GA_MEASUREMENT_ID === '') {
+        return;
+    }
+    $id = e(GA_MEASUREMENT_ID);
+    echo '<script async src="https://www.googletagmanager.com/gtag/js?id=' . $id . '"></script>' . "\n";
+    echo "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','" . $id . "');</script>\n";
+}
+
 function smtp_configured(): bool
 {
     return SMTP_PASSWORD !== '' && SMTP_USERNAME !== '' && SMTP_HOST !== '';
@@ -568,6 +632,7 @@ function current_mail_settings(): array
         'SMTP_FROM_NAME' => SMTP_FROM_NAME,
         'BOOKING_OWNER_EMAIL' => BOOKING_OWNER_EMAIL,
         'SMTP_PASSWORD_SET' => SMTP_PASSWORD !== '',
+        'GA_MEASUREMENT_ID' => GA_MEASUREMENT_ID,
     ];
 }
 
@@ -582,6 +647,7 @@ function save_mail_settings(array $payload): array
         'SMTP_FROM_EMAIL' => normalize_text($payload['SMTP_FROM_EMAIL'] ?? '', 180),
         'SMTP_FROM_NAME' => normalize_text($payload['SMTP_FROM_NAME'] ?? BUSINESS_NAME, 180),
         'BOOKING_OWNER_EMAIL' => normalize_text($payload['BOOKING_OWNER_EMAIL'] ?? '', 180),
+        'GA_MEASUREMENT_ID' => normalize_text($payload['GA_MEASUREMENT_ID'] ?? '', 40),
     ];
 
     if ($settings['SMTP_HOST'] === '') {
@@ -612,6 +678,7 @@ function save_mail_settings(array $payload): array
     $content .= "define('SMTP_FROM_EMAIL', " . var_export($settings['SMTP_FROM_EMAIL'], true) . ");\n";
     $content .= "define('SMTP_FROM_NAME', " . var_export($settings['SMTP_FROM_NAME'], true) . ");\n";
     $content .= "define('BOOKING_OWNER_EMAIL', " . var_export($settings['BOOKING_OWNER_EMAIL'], true) . ");\n";
+    $content .= "define('GA_MEASUREMENT_ID', " . var_export($settings['GA_MEASUREMENT_ID'], true) . ");\n";
 
     if (file_put_contents(CONFIG_LOCAL_FILE, $content, LOCK_EX) === false) {
         return ['ok' => false, 'message' => 'Could not write SMTP settings. Check file permissions.'];

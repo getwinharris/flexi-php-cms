@@ -7,8 +7,28 @@ $posts = read_blog_posts(true);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog | Flexi Feet</title>
     <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <?php render_seo_tags(
+        'Foot Care Blog Malaysia | Diabetic Shoes, Custom Insoles & Orthotics',
+        'Expert Flexi Feet articles about diabetic foot care, custom orthopaedic shoes, offload insoles, flat feet support and 3D foot assessment in Malaysia.',
+        'blog.php',
+        'assets/images/banner-foot-problems.jpg',
+        'blog'
+    ); ?>
+    <?php render_json_ld([
+        '@context' => 'https://schema.org',
+        '@type' => 'Blog',
+        'name' => 'Flexi Feet Blog',
+        'url' => absolute_url('blog.php'),
+        'publisher' => ['@type' => 'Organization', 'name' => BUSINESS_NAME],
+        'blogPost' => array_map(fn($post) => [
+            '@type' => 'BlogPosting',
+            'headline' => $post['title'],
+            'url' => absolute_url('blog-post.php?slug=' . $post['slug']),
+            'datePublished' => $post['published_at'] ?: $post['created_at']
+        ], array_slice($posts, 0, 10))
+    ]); ?>
+    <?php render_google_analytics(); ?>
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
