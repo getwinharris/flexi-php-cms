@@ -3,6 +3,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_admin();
 
 $settings = current_seo_settings();
+$report = google_seo_report(($_GET['refresh'] ?? '') === '1');
 $posts = read_blog_posts(false);
 $publishedPosts = array_values(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'Published'));
 $indexedPosts = array_values(array_filter($publishedPosts, fn($post) => !post_noindex($post)));
@@ -35,14 +36,14 @@ $setup = [
         <div class="wp-topbar">
             <div>
                 <h1>Google SEO</h1>
-                <p>Manage Google visibility, Search Console verification, Analytics tracking, sitemaps, and blog SEO quality.</p>
+                <p>Google verification, live reports, sitemap status, and blog SEO quality.</p>
             </div>
             <a href="settings.php#google-seo-settings" class="wp-button primary">Configure Google</a>
         </div>
 
         <div class="admin-help-card">
-            <h2>How to use this page</h2>
-            <p>Start at the checklist, paste Google codes in Settings, submit <code><?= e(absolute_url('sitemap.php')) ?></code> in Search Console, then improve posts with weak SEO scores.</p>
+            <h2>SEO command center</h2>
+            <p>Use this page to see what Google can read, what is connected, and which posts need stronger snippets. Configuration stays in Settings to avoid duplicated controls.</p>
         </div>
 
         <div class="seo-dashboard-grid">
@@ -64,6 +65,61 @@ $setup = [
         </div>
 
         <section class="wp-panel seo-section-panel">
+            <div class="section-heading-row">
+                <div>
+                    <h2>Google Report</h2>
+                    <p>Last 28 available days from GA4 and Search Console. Uses service account auth, no Composer package.</p>
+                </div>
+                <a href="seo.php?refresh=1" class="wp-button">Refresh</a>
+            </div>
+            <?php if (!$report['ok']): ?>
+                <div class="empty-cell compact"><?= e($report['message']) ?></div>
+            <?php else: ?>
+                <div class="seo-dashboard-grid compact">
+                    <div class="seo-stat-card soft">
+                        <span>GA4 users</span>
+                        <strong><?= e((string) ($report['ga4']['metrics']['activeUsers'] ?? 0)) ?></strong>
+                        <p><?= $report['ga4']['ok'] ? 'Connected' : e($report['ga4']['message']) ?></p>
+                    </div>
+                    <div class="seo-stat-card soft">
+                        <span>Search clicks</span>
+                        <strong><?= e((string) ($report['search_console']['metrics']['clicks'] ?? 0)) ?></strong>
+                        <p><?= $report['search_console']['ok'] ? e(($report['search_console']['metrics']['impressions'] ?? 0) . ' impressions') : e($report['search_console']['message']) ?></p>
+                    </div>
+                    <div class="seo-stat-card soft">
+                        <span>Average CTR</span>
+                        <strong><?= e((string) ($report['search_console']['metrics']['ctr'] ?? 0)) ?>%</strong>
+                        <p><?= $report['cached'] ? 'Cached report' : 'Fresh report' ?></p>
+                    </div>
+                </div>
+                <div class="seo-two-col">
+                    <div>
+                        <h3>Top Search Queries</h3>
+                        <table class="wp-table compact-table">
+                            <tbody>
+                                <?php foreach (($report['search_console']['queries'] ?? []) as $row): ?>
+                                    <tr><td><?= e($row['label']) ?></td><td><?= e((string) $row['clicks']) ?> clicks</td><td><?= e((string) $row['position']) ?> pos.</td></tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($report['search_console']['queries'])): ?><tr><td class="empty-cell compact" colspan="3">No Search Console rows yet.</td></tr><?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h3>Top Pages</h3>
+                        <table class="wp-table compact-table">
+                            <tbody>
+                                <?php foreach (($report['ga4']['pages'] ?? []) as $row): ?>
+                                    <tr><td><?= e($row['path']) ?></td><td><?= e((string) $row['views']) ?> views</td><td><?= e((string) $row['users']) ?> users</td></tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($report['ga4']['pages'])): ?><tr><td class="empty-cell compact" colspan="3">No GA4 rows yet.</td></tr><?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section class="wp-panel seo-section-panel">
             <h2>Setup Checklist</h2>
             <div class="seo-checklist-grid">
                 <?php foreach ($setup as $label => $ok): ?>
@@ -72,30 +128,6 @@ $setup = [
                         <span><?= e($label) ?></span>
                     </div>
                 <?php endforeach; ?>
-            </div>
-        </section>
-
-        <section class="wp-panel seo-section-panel">
-            <h2>Google Setup Shortcuts</h2>
-            <div class="seo-two-col">
-                <div>
-                    <h3>Search Console</h3>
-                    <ol>
-                        <li>Open Google Search Console and add the URL-prefix property for <code><?= e(SITE_URL) ?></code>.</li>
-                        <li>Choose HTML meta tag verification and copy only the content value.</li>
-                        <li>Paste it in <a href="settings.php#google-seo-settings">Settings > Google SEO</a>.</li>
-                        <li>Submit sitemap: <code><?= e(absolute_url('sitemap.php')) ?></code>.</li>
-                    </ol>
-                </div>
-                <div>
-                    <h3>Google Analytics 4</h3>
-                    <ol>
-                        <li>Create or open a GA4 web stream.</li>
-                        <li>Copy the Measurement ID that starts with <code>G-</code>.</li>
-                        <li>Paste it in Settings. The site outputs the Google tag automatically.</li>
-                        <li>For admin report fetching later, add service account details without Composer.</li>
-                    </ol>
-                </div>
             </div>
         </section>
 

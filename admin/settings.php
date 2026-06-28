@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="wp-topbar">
             <div>
                 <h1>Settings</h1>
-                <p>Update SMTP and booking notification mail settings.</p>
+                <p>Update mail delivery, Google SEO connection, AI, and automation keys.</p>
             </div>
         </div>
 
@@ -66,10 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" class="settings-form wp-panel">
             <input type="hidden" name="csrf" value="<?= $csrf ?>">
-            <div class="admin-help-card compact">
-                <h2>Settings guide</h2>
-                <p>SMTP controls appointment emails. Google SEO controls Search Console verification, Analytics tracking, default snippets, and future admin reports. Leave secret fields blank to keep saved values.</p>
-            </div>
             <div class="settings-grid">
                 <div>
                     <label>SMTP Host</label>

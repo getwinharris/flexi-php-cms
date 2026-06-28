@@ -8,6 +8,9 @@ $urls = [
     ['loc' => absolute_url('blog.php'), 'priority' => '0.8'],
 ];
 foreach (read_blog_posts(true) as $post) {
+    if (post_noindex($post)) {
+        continue;
+    }
     $urls[] = [
         'loc' => absolute_url('blog-post.php?slug=' . $post['slug']),
         'priority' => '0.7',
