@@ -31,7 +31,13 @@ if (empty($payload['name']) || empty($payload['phone']) || empty($payload['prefe
 
 try {
     $appointment = create_appointment($payload);
-    echo json_encode(['ok' => true, 'message' => 'Success', 'appointment_id' => $appointment['id']]);
+    $mail = notify_booking_emails($appointment);
+    echo json_encode([
+        'ok' => true,
+        'message' => 'Success',
+        'appointment_id' => $appointment['id'],
+        'mail' => $mail,
+    ]);
 } catch (Exception $e) {
     echo json_encode(['ok' => false, 'message' => 'Storage error.']);
 }
