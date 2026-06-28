@@ -65,8 +65,9 @@ $problems = [
     ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'assets/images/conditions/hammer-toes.jpg'],
     ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/conditions/bunions.jpg'],
     ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/conditions/flat-feet.jpg'],
-    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot.jpg'],
-    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg']
+    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot-updated.jpg'],
+    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg'],
+    ['Amputation', 'Custom footwear and insole support after partial foot amputation.', 'assets/images/conditions/amputation.jpg']
 ];
 
 $faqs = [
@@ -291,7 +292,7 @@ $faqs = [
             <?php foreach ($problems as $index => $problem): ?>
                 <div class="problem-card">
                     <img src="<?= $problem[2] ?>" alt="<?= e($problem[0]) ?>" loading="lazy">
-                    <h3><?= ($index + 1) . '. ' . e($problem[0]) ?></h3>
+                    <h3><?= e($problem[0]) ?></h3>
                     <p><?= e($problem[1]) ?></p>
                 </div>
             <?php endforeach; ?>
