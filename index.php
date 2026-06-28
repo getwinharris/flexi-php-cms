@@ -75,15 +75,6 @@ $faqs = [
             ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => '3D foot assessment']]
         ]
     ]); ?>
-    <?php render_json_ld([
-        '@context' => 'https://schema.org',
-        '@type' => 'FAQPage',
-        'mainEntity' => array_map(fn($faq) => [
-            '@type' => 'Question',
-            'name' => $faq[0],
-            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq[1]]
-        ], array_slice($faqs, 0, 8))
-    ]); ?>
     <?php render_google_analytics(); ?>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">

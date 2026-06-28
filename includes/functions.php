@@ -1139,10 +1139,10 @@ function save_mail_settings(array $payload): array
     $content .= "define('AUTOMATION_TOKEN', " . var_export($settings['AUTOMATION_TOKEN'], true) . ");\n";
 
     if (file_put_contents(CONFIG_LOCAL_FILE, $content, LOCK_EX) === false) {
-        return ['ok' => false, 'message' => 'Could not write SMTP settings. Check file permissions.'];
+        return ['ok' => false, 'message' => 'Could not write settings. Check file permissions.'];
     }
 
-    return ['ok' => true, 'message' => 'SMTP settings saved.'];
+    return ['ok' => true, 'message' => 'Settings saved.'];
 }
 
 function google_ai_configured(): bool

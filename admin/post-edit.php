@@ -102,7 +102,7 @@ $seoScore = seo_score_post($post);
                             <h2>Google SEO</h2>
                             <p>Control how this post is understood by Google and previewed in search/social results.</p>
                         </div>
-                        <span class="seo-score-badge"><?= $seoScore['percent'] ?>%</span>
+                        <span class="seo-score-badge <?= $seoScore['percent'] >= 80 ? 'good' : ($seoScore['percent'] >= 55 ? 'warn' : 'bad') ?>"><?= $seoScore['percent'] ?>%</span>
                     </div>
                     <label>SEO Title</label>
                     <input type="text" name="seo_title" value="<?= e($post['seo_title']) ?>" maxlength="180" placeholder="<?= e(($post['title'] ?: 'Post title') . ' | Flexi Feet') ?>">
