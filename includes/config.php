@@ -15,9 +15,9 @@ define('UPLOADS_URL', 'assets/uploads');
 define('ADMIN_USERNAME', 'admin');
 define('ADMIN_PASSWORD_HASH', '$2y$12$Vrfd.NSjAkMh3uMjE76Cful4SkAmKVr9DOCIt1C0kObmPAErBfZTm'); // FlexiFeet@2026
 
-$local_config = __DIR__ . '/config.local.php';
-if (file_exists($local_config)) {
-    require_once $local_config;
+define('CONFIG_LOCAL_FILE', __DIR__ . '/config.local.php');
+if (file_exists(CONFIG_LOCAL_FILE)) {
+    require_once CONFIG_LOCAL_FILE;
 }
 
 defined('SMTP_HOST') || define('SMTP_HOST', getenv('FLEXIFEET_SMTP_HOST') ?: 'smtp.hostinger.com');

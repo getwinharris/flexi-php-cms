@@ -557,6 +557,69 @@ function notify_booking_emails(array $appointment): array
     return ['owner' => $ownerSent, 'user' => $userSent];
 }
 
+function current_mail_settings(): array
+{
+    return [
+        'SMTP_HOST' => SMTP_HOST,
+        'SMTP_PORT' => (string) SMTP_PORT,
+        'SMTP_ENCRYPTION' => SMTP_ENCRYPTION,
+        'SMTP_USERNAME' => SMTP_USERNAME,
+        'SMTP_FROM_EMAIL' => SMTP_FROM_EMAIL,
+        'SMTP_FROM_NAME' => SMTP_FROM_NAME,
+        'BOOKING_OWNER_EMAIL' => BOOKING_OWNER_EMAIL,
+        'SMTP_PASSWORD_SET' => SMTP_PASSWORD !== '',
+    ];
+}
+
+function save_mail_settings(array $payload): array
+{
+    $settings = [
+        'SMTP_HOST' => normalize_text($payload['SMTP_HOST'] ?? '', 120),
+        'SMTP_PORT' => (int) ($payload['SMTP_PORT'] ?? 465),
+        'SMTP_ENCRYPTION' => strtolower(normalize_text($payload['SMTP_ENCRYPTION'] ?? 'ssl', 20)),
+        'SMTP_USERNAME' => normalize_text($payload['SMTP_USERNAME'] ?? '', 180),
+        'SMTP_PASSWORD' => (string) ($payload['SMTP_PASSWORD'] ?? ''),
+        'SMTP_FROM_EMAIL' => normalize_text($payload['SMTP_FROM_EMAIL'] ?? '', 180),
+        'SMTP_FROM_NAME' => normalize_text($payload['SMTP_FROM_NAME'] ?? BUSINESS_NAME, 180),
+        'BOOKING_OWNER_EMAIL' => normalize_text($payload['BOOKING_OWNER_EMAIL'] ?? '', 180),
+    ];
+
+    if ($settings['SMTP_HOST'] === '') {
+        return ['ok' => false, 'message' => 'SMTP host is required.'];
+    }
+    if ($settings['SMTP_PORT'] < 1 || $settings['SMTP_PORT'] > 65535) {
+        return ['ok' => false, 'message' => 'SMTP port must be between 1 and 65535.'];
+    }
+    if (!in_array($settings['SMTP_ENCRYPTION'], ['ssl', 'tls', 'starttls'], true)) {
+        return ['ok' => false, 'message' => 'Choose SSL, TLS, or STARTTLS.'];
+    }
+    foreach (['SMTP_USERNAME', 'SMTP_FROM_EMAIL', 'BOOKING_OWNER_EMAIL'] as $emailKey) {
+        if (!filter_var($settings[$emailKey], FILTER_VALIDATE_EMAIL)) {
+            return ['ok' => false, 'message' => $emailKey . ' must be a valid email address.'];
+        }
+    }
+    if ($settings['SMTP_PASSWORD'] === '') {
+        $settings['SMTP_PASSWORD'] = SMTP_PASSWORD;
+    }
+
+    $content = "<?php\n";
+    $content .= "declare(strict_types=1);\n\n";
+    $content .= "define('SMTP_HOST', " . var_export($settings['SMTP_HOST'], true) . ");\n";
+    $content .= "define('SMTP_PORT', " . $settings['SMTP_PORT'] . ");\n";
+    $content .= "define('SMTP_ENCRYPTION', " . var_export($settings['SMTP_ENCRYPTION'], true) . ");\n";
+    $content .= "define('SMTP_USERNAME', " . var_export($settings['SMTP_USERNAME'], true) . ");\n";
+    $content .= "define('SMTP_PASSWORD', " . var_export($settings['SMTP_PASSWORD'], true) . ");\n";
+    $content .= "define('SMTP_FROM_EMAIL', " . var_export($settings['SMTP_FROM_EMAIL'], true) . ");\n";
+    $content .= "define('SMTP_FROM_NAME', " . var_export($settings['SMTP_FROM_NAME'], true) . ");\n";
+    $content .= "define('BOOKING_OWNER_EMAIL', " . var_export($settings['BOOKING_OWNER_EMAIL'], true) . ");\n";
+
+    if (file_put_contents(CONFIG_LOCAL_FILE, $content, LOCK_EX) === false) {
+        return ['ok' => false, 'message' => 'Could not write SMTP settings. Check file permissions.'];
+    }
+
+    return ['ok' => true, 'message' => 'SMTP settings saved.'];
+}
+
 function is_admin(): bool
 {
     start_app_session();
