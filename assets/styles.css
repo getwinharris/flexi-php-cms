@@ -753,12 +753,13 @@ textarea:focus-visible {
     display: flex;
     align-items: center;
     gap: 15px;
-    font-size: 15px;
-    transition: 0.3s;
+    font-size: 16px;
+    line-height: 1.45;
+    transition: transform 0.2s ease;
 }
 
 .check-list li:hover {
-    transform: translateX(5px);
+    transform: translateX(3px);
 }
 
 .check-list li::before {
@@ -779,41 +780,45 @@ textarea:focus-visible {
 /* Foot Problems Grid */
 .problems-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
 }
 
 .problem-card {
     background: var(--apple-white);
-    padding: 30px;
-    border-radius: var(--radius-md);
+    padding: 18px 18px 22px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--apple-gray-200);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .problem-card:hover {
-    background: var(--apple-gray-100);
+    background: var(--apple-white);
     border-color: var(--logo-cyan);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
 }
 
 .problem-card h3 {
     font-size: 18px;
-    margin-bottom: 10px;
+    color: var(--logo-navy);
+    margin: 4px 0 8px;
 }
 
 .problem-card p {
     font-size: 14px;
     color: var(--text-muted);
+    line-height: 1.5;
 }
 
 .problem-card img {
     width: 100%;
-    height: 150px;
+    height: 172px;
     display: block;
     object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 15px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 18px;
 }
 
 .faq-section {
@@ -843,7 +848,7 @@ textarea:focus-visible {
     background: var(--apple-white);
     border: 1px solid var(--apple-gray-200);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
     color: var(--logo-navy);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -884,7 +889,7 @@ textarea:focus-visible {
 
 .faq-tool-btn,
 .faq-filter {
-    min-height: 42px;
+    min-height: 44px;
     border: 1px solid var(--apple-gray-200);
     border-radius: var(--radius-sm);
     background: var(--apple-white);
@@ -909,6 +914,7 @@ textarea:focus-visible {
 .faq-filter:hover {
     border-color: var(--logo-cyan);
     transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(63, 186, 211, 0.10);
 }
 
 .faq-filter.active {
@@ -927,7 +933,7 @@ textarea:focus-visible {
     background: var(--apple-white);
     border-radius: var(--radius-md);
     border: 1px solid var(--apple-gray-200);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
     overflow: hidden;
     transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
@@ -935,7 +941,7 @@ textarea:focus-visible {
 .faq-item:hover,
 .faq-item.active {
     border-color: rgba(63, 186, 211, 0.6);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 10px 26px rgba(30, 27, 93, 0.06);
 }
 
 .faq-item.active {
@@ -1065,28 +1071,29 @@ textarea:focus-visible {
 
 /* Booking Form */
 .booking-section {
-    padding: 120px 0;
+    padding: 104px 0;
     background: var(--logo-navy);
     color: var(--apple-white);
-    border-radius: var(--radius-xl);
-    margin: 40px 0;
+    border-radius: 0;
+    margin: 0;
     overflow: hidden;
 }
 
 .booking-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 80px;
+    gap: clamp(48px, 7vw, 88px);
     align-items: center;
 }
 
 .booking-form {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-    padding: 50px;
-    border-radius: var(--radius-xl);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--shadow-premium);
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: saturate(150%) blur(20px);
+    -webkit-backdrop-filter: saturate(150%) blur(20px);
+    padding: clamp(28px, 4vw, 44px);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
 }
 
 .booking-form input, 
@@ -1094,12 +1101,14 @@ textarea:focus-visible {
 .booking-form textarea {
     width: 100%;
     padding: 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: var(--radius-md);
     color: white;
     font-size: 16px;
-    transition: all 0.3s ease;
+    line-height: 1.35;
+    letter-spacing: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .booking-form input:focus, 
@@ -1108,25 +1117,33 @@ textarea:focus-visible {
     outline: none;
     background: rgba(255, 255, 255, 0.12);
     border-color: var(--logo-cyan);
-    box-shadow: 0 0 0 4px rgba(63, 186, 211, 0.2);
+    box-shadow: 0 0 0 4px rgba(63, 186, 211, 0.22);
 }
 
 .booking-form .submit-btn {
     width: 100%;
-    padding: 18px;
+    min-height: 54px;
+    padding: 16px 22px;
     background: var(--logo-cyan);
-    color: var(--logo-navy);
+    color: var(--apple-white);
     border: none;
-    border-radius: var(--radius-md);
-    font-size: 18px;
+    border-radius: 9999px;
+    font-size: 16px;
     font-weight: 700;
+    letter-spacing: 0;
     cursor: pointer;
-    transition: 0.3s;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 30px rgba(63, 186, 211, 0.18);
 }
 
 .booking-form .submit-btn:hover {
     background: var(--logo-cyan-hover);
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 34px rgba(63, 186, 211, 0.22);
+}
+
+.booking-form .submit-btn:active {
+    transform: scale(0.97);
 }
 
 /* Footer */
