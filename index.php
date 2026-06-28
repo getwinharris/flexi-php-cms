@@ -65,9 +65,33 @@ $problems = [
     ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'assets/images/conditions/hammer-toes.jpg'],
     ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/conditions/bunions.jpg'],
     ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/conditions/flat-feet.jpg'],
-    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot.jpg'],
+    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/open-source/charcot-foot.jpg'],
     ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg'],
-    ['Ingrown Toenails', 'Nail edges growing into skin.', 'assets/images/conditions/ingrown-toenails.jpg']
+    ['Amputation', 'Supportive footwear and insole planning after partial or full foot amputation.', 'assets/images/conditions/amputation.svg']
+];
+
+$solutions = [
+    ['Diabetic Custom-Made Offload Shoes', 'Pressure-relieving custom footwear designed for diabetic foot protection.', 'assets/images/shoe-web.png'],
+    ['Custom-Made Offload Insoles', 'Targeted insoles that redistribute pressure away from sensitive areas.', 'assets/images/banner-insole-milling.jpg'],
+    ['Custom-Made Flat Feet Insoles', 'Supportive insoles shaped to improve comfort, alignment, and arch support.', 'assets/images/open-source/flat-foot.jpg'],
+    ['Diabetic Socks', 'Soft, protective socks selected to reduce friction and support daily foot care.', 'assets/images/open-source/diabetic-foot-ulcer.jpg']
+];
+
+$faqs = [
+    ['Do I need to fix an appointment?', 'It is always better to fix an appointment to save your time.'],
+    ['Does your shop have parking?', 'Yes, we have a parking lot.'],
+    ['Is your shop located on the ground floor?', 'Yes, we are on the ground floor.'],
+    ['How long will the initial consultation take?', 'The initial consultation usually takes 20 to 30 minutes.'],
+    ['How long will it take to receive my custom-made diabetic shoes?', 'Custom-made diabetic shoes usually take 3 to 4 weeks.'],
+    ['If I order insoles, can I insert them into my existing sports shoes?', 'Yes. We use the latest 3D technology, and our insoles are slim, rigid EVA material from Italy. You can use them in existing shoes without changing your shoes or buying one size bigger.'],
+    ['Can I get an appointment on Sunday?', 'Yes, with a prior appointment and depending on staff availability.'],
+    ['Is a home visit possible?', 'Home visits are possible with a prior appointment. There is an extra RM 200 travel cost inside KL.'],
+    ['In Malaysia, what places do you provide service?', 'Our main branch is in KL Sentul. We travel to Ipoh and JB (Kulai) once a month.'],
+    ['What payment methods do you accept?', 'We accept card, QR payment, and account transfer.'],
+    ['What are the payment terms?', 'A 50% deposit is required when placing the order, and the remaining 50% is due on delivery.'],
+    ['What is your return policy for custom products?', 'Because every pair is uniquely tailored to your specifications, we do not accept standard returns or exchanges for change of mind.'],
+    ['What happens if my custom shoes do not fit properly?', 'If the fit is off, we will either reimburse you for minor adjustments made at a local cobbler or remake the pair for you free of charge.'],
+    ['What materials do you use?', 'We source premium, durable materials including top-grain French leather. For insoles, we use EVA from Italy.']
 ];
 ?>
 <!doctype html>
@@ -102,6 +126,7 @@ $problems = [
                 <li><a href="#technology">Technology</a></li>
                 <li><a href="#conditions">Conditions</a></li>
                 <li><a href="#process">Process</a></li>
+                <li><a href="#faq">FAQ</a></li>
             </ul>
         </nav>
         <div class="burger-menu" id="burger-toggle">
@@ -219,8 +244,8 @@ $problems = [
     <section id="products" class="container reveal">
         <div class="scanning-grid">
             <div class="scanning-text">
-                <h2 style="font-size: 32px; margin-bottom: 20px;">Custom Diabetic Shoes</h2>
-                <p>Our custom shoes are made to accommodate common diabetic foot issues such as neuropathy, poor circulation, and foot deformities. Choose from a wide range of styles, widths, and features:</p>
+                <h2 style="font-size: 32px; margin-bottom: 20px;">Diabetic & Orthopaedic Solutions</h2>
+                <p>Our custom solutions are made to accommodate common diabetic and orthopaedic foot needs, including pressure offloading, flat feet support, and daily protection.</p>
                 <ul class="check-list" style="margin-top: 20px;">
                     <li>Orthotic-Friendly Soles</li>
                     <li>Extra Depth & Width Options</li>
@@ -229,24 +254,15 @@ $problems = [
                 </ul>
             </div>
             <div class="product-styles-panel">
-                <h4>Styles Available</h4>
+                <h4>Solutions Available</h4>
                 <div class="product-styles-grid">
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
-                        <p>Walking Shoes</p>
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
-                        <p>Dress Shoes</p>
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
-                        <p>Sandals</p>
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
-                        <p>Boots</p>
-                    </div>
+                    <?php foreach ($solutions as $solution): ?>
+                        <div class="product-style-card hover-lift">
+                            <img src="<?= e($solution[2]) ?>" alt="<?= e($solution[0]) ?>" loading="lazy">
+                            <p><?= e($solution[0]) ?></p>
+                            <span><?= e($solution[1]) ?></span>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
@@ -305,6 +321,19 @@ $problems = [
                 <h3>Choose Your Style</h3>
                 <p>Pick from a variety of fashionable and functional designs.</p>
             </div>
+        </div>
+    </section>
+
+    <section id="faq" class="container reveal">
+        <h2 class="section-title">Questions & Answers</h2>
+        <p class="section-subtitle">Helpful details about appointments, visits, payments, custom orders, and materials.</p>
+        <div class="faq-grid">
+            <?php foreach ($faqs as $faq): ?>
+                <article class="faq-item">
+                    <h3><?= e($faq[0]) ?></h3>
+                    <p><?= e($faq[1]) ?></p>
+                </article>
+            <?php endforeach; ?>
         </div>
     </section>
 
