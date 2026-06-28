@@ -3,53 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/functions.php';
 start_app_session();
 $csrf = csrf_token();
-
-$fallback_shorts_ids = ['yiTjZajndfE', 'tuW4r1IArDY', '6Y_5UTtf_CI', 'K8ZBQpI09VA', 'cnZ7ghJ59hM', 'cF9bWTC2ImM'];
-
-function get_youtube_shorts_ids(array $fallbackIds, int $limit = 18): array
-{
-    $cacheFile = STORAGE_DIR . '/youtube-shorts-cache.json';
-    $cacheTtl = 21600;
-
-    if (is_file($cacheFile)) {
-        $cache = json_decode((string) file_get_contents($cacheFile), true);
-        if (
-            is_array($cache)
-            && isset($cache['fetched_at'], $cache['ids'])
-            && time() - (int) $cache['fetched_at'] < $cacheTtl
-            && is_array($cache['ids'])
-        ) {
-            return array_slice(array_values(array_unique(array_merge($cache['ids'], $fallbackIds))), 0, $limit);
-        }
-    }
-
-    $ids = [];
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 4,
-            'header' => "User-Agent: Mozilla/5.0\r\nAccept-Language: en-US,en;q=0.9\r\n",
-        ],
-    ]);
-    $html = @file_get_contents('https://www.youtube.com/@flexifeetmalaysia/shorts', false, $context);
-
-    if (is_string($html) && preg_match_all('/"videoId":"([a-zA-Z0-9_-]{11})"/', $html, $matches)) {
-        $ids = array_values(array_unique($matches[1]));
-    }
-
-    $ids = array_slice(array_values(array_unique(array_merge($ids, $fallbackIds))), 0, $limit);
-
-    if (!empty($ids)) {
-        storage_bootstrap();
-        @file_put_contents($cacheFile, json_encode([
-            'fetched_at' => time(),
-            'ids' => $ids,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
-    }
-
-    return $ids ?: $fallbackIds;
-}
-
-$shorts_ids = get_youtube_shorts_ids($fallback_shorts_ids);
+$reels = read_reels(true);
 
 $banners = [
     ['url' => 'assets/images/banner-foot-problems.jpg', 'alt' => 'Common Foot Problems'],
@@ -203,7 +157,7 @@ $faqs = [
         </div>
     </section>
 
-    <!-- Reels Style Shorts Slider -->
+    <?php if (!empty($reels)): ?>
     <section id="shorts" class="shorts-section reveal">
         <div class="container">
             <h2 class="section-title">Flexi Stories</h2>
@@ -211,14 +165,14 @@ $faqs = [
             <div class="reels-container">
                 <div class="swiper shorts-swiper">
                     <div class="swiper-wrapper">
-                        <?php foreach ($shorts_ids as $id): ?>
+                        <?php foreach ($reels as $reel): ?>
                             <div class="swiper-slide">
-                                <button class="shorts-card" type="button" data-video-id="<?= e($id) ?>" aria-label="Play Flexi Feet Short">
-                                    <img src="https://i.ytimg.com/vi/<?= e($id) ?>/hqdefault.jpg" alt="Flexi Feet YouTube Short" loading="lazy">
+                                <a class="shorts-card" href="<?= e($reel['url']) ?>" target="_blank" rel="noopener" aria-label="Open <?= e($reel['title'] ?: 'Flexi Feet Reel') ?>">
+                                    <img src="<?= e($reel['thumbnail']) ?>" alt="<?= e($reel['title'] ?: 'Flexi Feet Instagram Reel') ?>" loading="lazy">
                                     <span class="shorts-play" aria-hidden="true">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                                     </span>
-                                </button>
+                                </a>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -233,6 +187,7 @@ $faqs = [
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
     <section id="products" class="container reveal">
         <div class="scanning-grid">
@@ -322,15 +277,68 @@ $faqs = [
         </div>
     </section>
 
-    <section id="faq" class="container reveal">
+    <section id="faq" class="container reveal faq-section">
         <h2 class="section-title">Q & A</h2>
-        <div class="faq-grid">
-            <?php foreach ($faqs as $faq): ?>
-                <article class="faq-item">
-                    <h3><?= e($faq[0]) ?></h3>
-                    <p><?= e($faq[1]) ?></p>
-                </article>
-            <?php endforeach; ?>
+        <p class="section-subtitle">Find quick answers about appointments, visits, payment, and custom footwear care.</p>
+        <div class="faq-shell" data-faq>
+            <div class="faq-tools">
+                <label class="faq-search" for="faq-search">
+                    <span aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                    <input id="faq-search" type="search" placeholder="Search questions" autocomplete="off" data-faq-search>
+                </label>
+                <div class="faq-actions">
+                    <button type="button" class="faq-tool-btn" data-faq-expand>Expand all</button>
+                    <button type="button" class="faq-tool-btn" data-faq-collapse>Collapse all</button>
+                </div>
+            </div>
+            <div class="faq-filters" aria-label="FAQ filters">
+                <button type="button" class="faq-filter active" data-faq-filter="all">All</button>
+                <button type="button" class="faq-filter" data-faq-filter="appointment">Appointments</button>
+                <button type="button" class="faq-filter" data-faq-filter="product">Products</button>
+                <button type="button" class="faq-filter" data-faq-filter="payment">Payment</button>
+                <button type="button" class="faq-filter" data-faq-filter="visit">Visits</button>
+            </div>
+            <div class="faq-grid">
+                <?php foreach ($faqs as $index => $faq): ?>
+                    <?php
+                        $faqText = strtolower($faq[0] . ' ' . $faq[1]);
+                        $category = 'product';
+                        if (strpos($faqText, 'parking') !== false || strpos($faqText, 'ground floor') !== false || strpos($faqText, 'home visit') !== false || strpos($faqText, 'malaysia') !== false || strpos($faqText, 'travel') !== false) {
+                            $category = 'visit';
+                        } elseif (strpos($faqText, 'appointment') !== false || strpos($faqText, 'consultation') !== false || strpos($faqText, 'sunday') !== false) {
+                            $category = 'appointment';
+                        } elseif (strpos($faqText, 'payment') !== false || strpos($faqText, 'deposit') !== false || strpos($faqText, 'card') !== false || strpos($faqText, 'transfer') !== false) {
+                            $category = 'payment';
+                        }
+                    ?>
+                    <article class="faq-item<?= $index === 0 ? ' active' : '' ?>" data-faq-item data-category="<?= e($category) ?>">
+                        <h3>
+                            <button
+                                type="button"
+                                class="faq-question"
+                                id="faq-question-<?= $index ?>"
+                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>"
+                                aria-controls="faq-answer-<?= $index ?>"
+                            >
+                                <span><?= e($faq[0]) ?></span>
+                                <span class="faq-toggle" aria-hidden="true"></span>
+                            </button>
+                        </h3>
+                        <div
+                            class="faq-answer"
+                            id="faq-answer-<?= $index ?>"
+                            role="region"
+                            aria-labelledby="faq-question-<?= $index ?>"
+                            <?= $index === 0 ? '' : 'hidden' ?>
+                        >
+                            <p><?= e($faq[1]) ?></p>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+                <p class="faq-empty" data-faq-empty hidden>No matching questions yet. Try another keyword or category.</p>
+            </div>
         </div>
     </section>
 

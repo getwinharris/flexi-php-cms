@@ -6,6 +6,7 @@ $id = normalize_text($_GET['id'] ?? '', 80);
 $post = $id !== '' ? find_blog_post($id, false) : null;
 $error = '';
 $saved = false;
+$mediaFiles = list_media_files();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf'] ?? null)) {
@@ -13,16 +14,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (trim((string) ($_POST['title'] ?? '')) === '') {
         $error = 'Title is required.';
     } else {
+        $featuredImage = normalize_text($_POST['featured_image'] ?? '', 300);
+        if (isset($_FILES['featured_upload'])) {
+            $upload = handle_media_upload($_FILES['featured_upload']);
+            if (!$upload['ok']) {
+                $error = $upload['message'];
+            } elseif ($upload['path'] !== '') {
+                $featuredImage = $upload['path'];
+            }
+        }
+    }
+
+    if ($error === '') {
         $post = save_blog_post([
             'title' => $_POST['title'] ?? '',
             'slug' => $_POST['slug'] ?? '',
             'excerpt' => $_POST['excerpt'] ?? '',
             'content' => $_POST['content'] ?? '',
             'status' => $_POST['status'] ?? 'Draft',
-            'featured_image' => $_POST['featured_image'] ?? '',
+            'featured_image' => $featuredImage,
         ], $post['id'] ?? null);
         $saved = true;
         $id = $post['id'];
+        $mediaFiles = list_media_files();
     }
 }
 
@@ -43,7 +57,7 @@ $post = $post ?: [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $id ? 'Edit Post' : 'Add New Post' ?> | Flexi Feet Admin</title>
     <link rel="stylesheet" href="../assets/styles.css">
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="flexi-admin.css">
 </head>
 <body class="wp-admin">
     <?php include __DIR__ . '/partials/sidebar.php'; ?>
@@ -59,7 +73,7 @@ $post = $post ?: [
         <?php if ($saved): ?><div class="wp-notice">Post saved.</div><?php endif; ?>
         <?php if ($error): ?><div class="wp-notice error"><?= e($error) ?></div><?php endif; ?>
 
-        <form method="POST" class="editor-layout">
+        <form method="POST" class="editor-layout" enctype="multipart/form-data">
             <input type="hidden" name="csrf" value="<?= $csrf ?>">
             <section class="editor-main">
                 <input class="title-input" type="text" name="title" value="<?= e($post['title']) ?>" placeholder="Add title" required>
@@ -86,10 +100,56 @@ $post = $post ?: [
                 <div class="wp-panel side-panel">
                     <h2>Featured Image</h2>
                     <input type="text" name="featured_image" value="<?= e($post['featured_image']) ?>" placeholder="assets/images/example.jpg">
-                    <p class="field-help">Use an uploaded image URL or an existing asset path.</p>
+                    <label>Upload New</label>
+                    <input type="file" name="featured_upload" accept="image/*">
+                    <?php if (!empty($post['featured_image'])): ?>
+                        <img class="media-preview" src="../<?= e($post['featured_image']) ?>" alt="">
+                    <?php endif; ?>
+                    <p class="field-help">Upload a new image or choose a path from Media Library.</p>
+                    <?php if (!empty($mediaFiles)): ?>
+                        <div class="media-quick-grid">
+                            <?php foreach (array_slice($mediaFiles, 0, 8) as $media): ?>
+                                <button type="button" class="media-pick" data-featured-path="<?= e($media['path']) ?>" title="Set as featured image">
+                                    <img src="../<?= e($media['path']) ?>" alt="<?= e($media['name']) ?>">
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
+                <?php if (!empty($mediaFiles)): ?>
+                    <div class="wp-panel side-panel">
+                        <h2>Insert Media</h2>
+                        <div class="media-action-list">
+                            <?php foreach (array_slice($mediaFiles, 0, 10) as $media): ?>
+                                <button type="button" data-insert-path="<?= e($media['path']) ?>">
+                                    <img src="../<?= e($media['path']) ?>" alt="">
+                                    <span><?= e($media['name']) ?></span>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </aside>
         </form>
+        <script>
+            document.querySelectorAll('[data-featured-path]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const input = document.querySelector('input[name="featured_image"]');
+                    if (input) input.value = button.dataset.featuredPath;
+                });
+            });
+            document.querySelectorAll('[data-insert-path]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const editor = document.querySelector('textarea[name="content"]');
+                    if (!editor) return;
+                    const shortcode = `\n\n[image:${button.dataset.insertPath}]\n\n`;
+                    const start = editor.selectionStart || editor.value.length;
+                    const end = editor.selectionEnd || editor.value.length;
+                    editor.value = editor.value.slice(0, start) + shortcode + editor.value.slice(end);
+                    editor.focus();
+                });
+            });
+        </script>
     </main>
 </body>
 </html>

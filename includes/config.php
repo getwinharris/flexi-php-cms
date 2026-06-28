@@ -9,6 +9,9 @@ define('BUSINESS_ADDRESS', 'G17, Residency Awani 2, 1A, Jalan 2/12, Kampung Batu
 define('STORAGE_DIR', __DIR__ . '/../storage');
 define('APPOINTMENTS_FILE', STORAGE_DIR . '/appointments.json');
 define('BLOG_POSTS_FILE', STORAGE_DIR . '/blog-posts.json');
+define('REELS_FILE', STORAGE_DIR . '/instagram-reels.json');
+define('UPLOADS_DIR', __DIR__ . '/../assets/uploads');
+define('UPLOADS_URL', 'assets/uploads');
 define('ADMIN_USERNAME', 'admin');
 define('ADMIN_PASSWORD_HASH', '$2y$12$Vrfd.NSjAkMh3uMjE76Cful4SkAmKVr9DOCIt1C0kObmPAErBfZTm'); // FlexiFeet@2026
 

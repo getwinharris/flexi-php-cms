@@ -20,7 +20,7 @@ $confirmed = count(array_filter($appointments, fn($a) => $a['status'] === 'Confi
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Flexi Feet CRM</title>
     <link rel="stylesheet" href="../assets/styles.css">
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="flexi-admin.css">
     <style>
         :root {
             --sidebar-width: 260px;
@@ -282,6 +282,18 @@ $confirmed = count(array_filter($appointments, fn($a) => $a['status'] === 'Confi
                 <a href="post-edit.php" class="nav-link">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                     Add New
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="media.php" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                    Media
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="reels.php" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="m10 8 6 4-6 4Z"/></svg>
+                    Instagram Reels
                 </a>
             </li>
             <li class="nav-item">

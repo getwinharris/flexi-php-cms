@@ -45,6 +45,10 @@ function storage_bootstrap(): void
         mkdir(STORAGE_DIR, 0755, true);
     }
 
+    if (!is_dir(UPLOADS_DIR)) {
+        mkdir(UPLOADS_DIR, 0755, true);
+    }
+
     if (!file_exists(APPOINTMENTS_FILE)) {
         file_put_contents(APPOINTMENTS_FILE, json_encode([
             'appointments' => [],
@@ -55,6 +59,13 @@ function storage_bootstrap(): void
     if (!file_exists(BLOG_POSTS_FILE)) {
         file_put_contents(BLOG_POSTS_FILE, json_encode([
             'posts' => [],
+            'updated_at' => gmdate(DATE_ATOM),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    if (!file_exists(REELS_FILE)) {
+        file_put_contents(REELS_FILE, json_encode([
+            'reels' => [],
             'updated_at' => gmdate(DATE_ATOM),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
@@ -84,6 +95,26 @@ function save_appointments(array $appointments): void
     file_put_contents(APPOINTMENTS_FILE, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
 }
 
+function read_json_file(string $file, string $key): array
+{
+    storage_bootstrap();
+    $raw = is_file($file) ? file_get_contents($file) : '';
+    $data = json_decode((string) $raw, true);
+    if (!is_array($data) || !isset($data[$key]) || !is_array($data[$key])) {
+        return [];
+    }
+    return $data[$key];
+}
+
+function save_json_file(string $file, string $key, array $items): void
+{
+    storage_bootstrap();
+    file_put_contents($file, json_encode([
+        $key => array_values($items),
+        'updated_at' => gmdate(DATE_ATOM),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
 function create_appointment(array $payload): array
 {
     $appointments = read_appointments();
@@ -109,16 +140,7 @@ function update_appointment_status(string $id, string $status): bool
 
 function read_blog_posts(bool $publishedOnly = false): array
 {
-    storage_bootstrap();
-    $raw = file_get_contents(BLOG_POSTS_FILE);
-    $data = json_decode($raw, true);
-    if (!is_array($data)) {
-        $data = ['posts' => [], 'updated_at' => gmdate(DATE_ATOM)];
-    }
-    $posts = $data['posts'] ?? [];
-    if (!is_array($posts)) {
-        $posts = [];
-    }
+    $posts = read_json_file(BLOG_POSTS_FILE, 'posts');
     if ($publishedOnly) {
         $posts = array_values(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'Published'));
     }
@@ -128,11 +150,7 @@ function read_blog_posts(bool $publishedOnly = false): array
 
 function save_blog_posts(array $posts): void
 {
-    storage_bootstrap();
-    file_put_contents(BLOG_POSTS_FILE, json_encode([
-        'posts' => array_values($posts),
-        'updated_at' => gmdate(DATE_ATOM),
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    save_json_file(BLOG_POSTS_FILE, 'posts', $posts);
 }
 
 function slugify(string $value): string
@@ -230,15 +248,189 @@ function delete_blog_post(string $id): bool
     return true;
 }
 
+function sanitize_external_url(string $url): string
+{
+    $url = trim($url);
+    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return '';
+    }
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    return in_array($scheme, ['http', 'https'], true) ? $url : '';
+}
+
+function is_instagram_url(string $url): bool
+{
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    return $host === 'instagram.com' || $host === 'www.instagram.com';
+}
+
+function read_reels(bool $activeOnly = false): array
+{
+    $reels = read_json_file(REELS_FILE, 'reels');
+    if ($activeOnly) {
+        $reels = array_values(array_filter($reels, fn($reel) => ($reel['status'] ?? '') === 'Active'));
+    }
+    usort($reels, fn($a, $b) => ((int) ($a['sort_order'] ?? 0)) <=> ((int) ($b['sort_order'] ?? 0)));
+    return $reels;
+}
+
+function find_reel(string $id): ?array
+{
+    foreach (read_reels(false) as $reel) {
+        if (($reel['id'] ?? '') === $id) {
+            return $reel;
+        }
+    }
+    return null;
+}
+
+function save_reels(array $reels): void
+{
+    save_json_file(REELS_FILE, 'reels', $reels);
+}
+
+function save_reel(array $payload, ?string $id = null): array
+{
+    $reels = read_reels(false);
+    $now = date('Y-m-d H:i:s');
+    $status = ($payload['status'] ?? 'Active') === 'Inactive' ? 'Inactive' : 'Active';
+    $reel = [
+        'id' => $id ?: 'REEL-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
+        'title' => normalize_text($payload['title'] ?? '', 140),
+        'url' => sanitize_external_url((string) ($payload['url'] ?? '')),
+        'thumbnail' => normalize_text($payload['thumbnail'] ?? '', 300),
+        'status' => $status,
+        'sort_order' => (int) ($payload['sort_order'] ?? (count($reels) + 1)),
+        'updated_at' => $now,
+    ];
+
+    $existingIndex = null;
+    foreach ($reels as $index => $existing) {
+        if (($existing['id'] ?? '') === $reel['id']) {
+            $existingIndex = $index;
+            $reel['created_at'] = $existing['created_at'] ?? $now;
+            break;
+        }
+    }
+
+    if ($existingIndex === null) {
+        $reel['created_at'] = $now;
+        $reels[] = $reel;
+    } else {
+        $reels[$existingIndex] = $reel;
+    }
+
+    save_reels($reels);
+    return $reel;
+}
+
+function delete_reel(string $id): bool
+{
+    $reels = read_reels(false);
+    $filtered = array_values(array_filter($reels, fn($reel) => ($reel['id'] ?? '') !== $id));
+    if (count($filtered) === count($reels)) {
+        return false;
+    }
+    save_reels($filtered);
+    return true;
+}
+
+function update_reel_order(array $orderedIds): void
+{
+    $positions = array_flip($orderedIds);
+    $reels = read_reels(false);
+    foreach ($reels as &$reel) {
+        $id = $reel['id'] ?? '';
+        if (isset($positions[$id])) {
+            $reel['sort_order'] = $positions[$id] + 1;
+        }
+    }
+    unset($reel);
+    save_reels($reels);
+}
+
+function handle_media_upload(array $file): array
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return ['ok' => true, 'path' => ''];
+    }
+    if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'message' => 'Upload failed.'];
+    }
+    if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
+        return ['ok' => false, 'message' => 'Image must be smaller than 5MB.'];
+    }
+
+    $tmp = (string) ($file['tmp_name'] ?? '');
+    $imageInfo = @getimagesize($tmp);
+    $allowed = [
+        IMAGETYPE_JPEG => 'jpg',
+        IMAGETYPE_PNG => 'png',
+        IMAGETYPE_WEBP => 'webp',
+        IMAGETYPE_GIF => 'gif',
+    ];
+    if (!is_array($imageInfo) || !isset($allowed[$imageInfo[2]])) {
+        return ['ok' => false, 'message' => 'Only JPG, PNG, WEBP, or GIF images are allowed.'];
+    }
+
+    $subdir = date('Y/m');
+    $targetDir = UPLOADS_DIR . '/' . $subdir;
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0755, true);
+    }
+
+    $baseName = slugify(pathinfo((string) ($file['name'] ?? 'image'), PATHINFO_FILENAME));
+    $filename = $baseName . '-' . bin2hex(random_bytes(4)) . '.' . $allowed[$imageInfo[2]];
+    $target = $targetDir . '/' . $filename;
+    if (!move_uploaded_file($tmp, $target)) {
+        return ['ok' => false, 'message' => 'Could not save uploaded image.'];
+    }
+
+    return ['ok' => true, 'path' => UPLOADS_URL . '/' . $subdir . '/' . $filename];
+}
+
+function list_media_files(): array
+{
+    storage_bootstrap();
+    if (!is_dir(UPLOADS_DIR)) {
+        return [];
+    }
+
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(UPLOADS_DIR, FilesystemIterator::SKIP_DOTS));
+    foreach ($iterator as $file) {
+        if (!$file->isFile()) {
+            continue;
+        }
+        $extension = strtolower($file->getExtension());
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+            continue;
+        }
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen(UPLOADS_DIR) + 1));
+        $files[] = [
+            'path' => UPLOADS_URL . '/' . $relative,
+            'name' => $file->getFilename(),
+            'size' => $file->getSize(),
+            'modified' => date('Y-m-d H:i:s', $file->getMTime()),
+        ];
+    }
+    usort($files, fn($a, $b) => strcmp($b['modified'], $a['modified']));
+    return $files;
+}
+
 function render_post_content(string $content): string
 {
-    $safe = e($content);
-    $paragraphs = preg_split("/\R{2,}/", $safe) ?: [];
+    $paragraphs = preg_split("/\R{2,}/", trim($content)) ?: [];
     $html = '';
     foreach ($paragraphs as $paragraph) {
         $paragraph = trim($paragraph);
         if ($paragraph !== '') {
-            $html .= '<p>' . nl2br($paragraph) . '</p>';
+            if (preg_match('/^\[image:([^\]]+)\]$/', $paragraph, $matches)) {
+                $src = normalize_text($matches[1], 300);
+                $html .= '<figure class="blog-inline-image"><img src="' . e($src) . '" alt=""></figure>';
+            } else {
+                $html .= '<p>' . nl2br(e($paragraph)) . '</p>';
+            }
         }
     }
     return $html;

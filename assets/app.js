@@ -72,17 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Swiper: Shorts (Reels Style)
     if (document.querySelector('.shorts-swiper')) {
-        const resetPlayingShorts = () => {
-            document.querySelectorAll('.shorts-card.is-playing').forEach(card => {
-                const iframe = card.querySelector('iframe');
-                if (iframe) {
-                    iframe.remove();
-                }
-                card.classList.remove('is-playing');
-                card.removeAttribute('aria-pressed');
-            });
-        };
-
         const shortsSwiper = new Swiper('.shorts-swiper', {
             loop: true,
             centeredSlides: true,
@@ -107,34 +96,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 768: { slidesPerView: 2.35, spaceBetween: 24 },
                 1024: { slidesPerView: 'auto', spaceBetween: 30 }
             },
-            on: {
-                slideChangeTransitionStart: resetPlayingShorts,
+        });
+    }
+
+    // FAQ accordion, search, and filters
+    const faqRoot = document.querySelector('[data-faq]');
+    if (faqRoot) {
+        const faqItems = Array.from(faqRoot.querySelectorAll('[data-faq-item]'));
+        const faqSearch = faqRoot.querySelector('[data-faq-search]');
+        const faqEmpty = faqRoot.querySelector('[data-faq-empty]');
+        const faqFilters = Array.from(faqRoot.querySelectorAll('[data-faq-filter]'));
+        let activeFilter = 'all';
+
+        const setFaqItem = (item, shouldOpen) => {
+            const answer = item.querySelector('.faq-answer');
+            const question = item.querySelector('.faq-question');
+
+            item.classList.toggle('active', shouldOpen);
+            question?.setAttribute('aria-expanded', String(shouldOpen));
+
+            if (answer) {
+                answer.hidden = !shouldOpen;
             }
+        };
+
+        const applyFaqFilters = () => {
+            const query = faqSearch?.value.trim().toLowerCase() || '';
+            let visibleCount = 0;
+
+            faqItems.forEach(item => {
+                const itemText = item.textContent.toLowerCase();
+                const categoryMatches = activeFilter === 'all' || item.dataset.category === activeFilter;
+                const searchMatches = !query || itemText.includes(query);
+                const isVisible = categoryMatches && searchMatches;
+
+                item.hidden = !isVisible;
+                if (isVisible) {
+                    visibleCount += 1;
+                } else {
+                    setFaqItem(item, false);
+                }
+            });
+
+            if (faqEmpty) {
+                faqEmpty.hidden = visibleCount > 0;
+            }
+        };
+
+        faqItems.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            question?.addEventListener('click', () => {
+                const shouldOpen = !item.classList.contains('active');
+                setFaqItem(item, shouldOpen);
+            });
         });
 
-        const shortsContainer = document.querySelector('.shorts-swiper');
-        shortsContainer?.addEventListener('click', (event) => {
-            const card = event.target.closest('.shorts-card');
-            if (!card || !shortsContainer.contains(card)) return;
+        faqSearch?.addEventListener('input', applyFaqFilters);
 
-            const videoId = card.dataset.videoId;
-            if (!videoId) return;
+        faqFilters.forEach(filter => {
+            filter.addEventListener('click', () => {
+                activeFilter = filter.dataset.faqFilter || 'all';
+                faqFilters.forEach(item => item.classList.toggle('active', item === filter));
+                applyFaqFilters();
+            });
+        });
 
-            const wasPlaying = card.classList.contains('is-playing');
-            resetPlayingShorts();
+        faqRoot.querySelector('[data-faq-expand]')?.addEventListener('click', () => {
+            faqItems.filter(item => !item.hidden).forEach(item => setFaqItem(item, true));
+        });
 
-            if (wasPlaying) return;
-
-            shortsSwiper.autoplay?.stop();
-            card.classList.add('is-playing');
-            card.setAttribute('aria-pressed', 'true');
-
-            const iframe = document.createElement('iframe');
-            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
-            iframe.title = 'Flexi Feet YouTube Short';
-            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            iframe.allowFullscreen = true;
-            card.appendChild(iframe);
+        faqRoot.querySelector('[data-faq-collapse]')?.addEventListener('click', () => {
+            faqItems.forEach(item => setFaqItem(item, false));
         });
     }
 

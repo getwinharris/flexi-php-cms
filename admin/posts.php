@@ -23,7 +23,7 @@ $drafts = count(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'D
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Posts | Flexi Feet Admin</title>
     <link rel="stylesheet" href="../assets/styles.css">
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="flexi-admin.css">
 </head>
 <body class="wp-admin">
     <?php include __DIR__ . '/partials/sidebar.php'; ?>
