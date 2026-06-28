@@ -66,8 +66,24 @@ $problems = [
     ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/conditions/bunions.jpg'],
     ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/conditions/flat-feet.jpg'],
     ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot.jpg'],
-    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg'],
-    ['Ingrown Toenails', 'Nail edges growing into skin.', 'assets/images/conditions/ingrown-toenails.jpg']
+    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg']
+];
+
+$faqs = [
+    ['DO I WANT to FIX APPOINTMENT?', 'Its always better to fix an appointment. To save your time.'],
+    ['Does your shop have parking?', 'Yes, we have parking lot.'],
+    ['Does your shop located in ground floor?', 'Yes, we are in ground floor'],
+    ['How long it will take for initial consultation?', '20 to 30 mins'],
+    ['How long will it take to receive my custom-made diabetic shoes?', '3 to 4 weeks'],
+    ['If I order insole, can I insert into my existing sports shoe?', 'We use latest 3D technology; our insole will be slim and rigid Eva material. You can use in existing shoes. No need changes your shoe or to buy one size bigger.'],
+    ['Can I get appointment on Sunday?', 'Can, but prior appointment and depends on staff availability.'],
+    ['Home visit possible?', 'Home visit possible prior appointment. And there will be extra RM 200 travel cost inside Kl'],
+    ['In Malaysia what are the places you provide service?', 'Our main branch is in KL -Sentul. We travel Ipoh, JB (Kulai) Monthly once.'],
+    ['Payment method?', 'Card / qr / account transfer'],
+    ['Payment terms?', '50% deposit while placing order, balance 50% while delivery.'],
+    ['What is your return policy for custom products?', 'Because every pair is uniquely tailored to your specifications, we do not accept standard returns or exchanges for change of mind.'],
+    ['What happens if my custom shoes do not fit properly?', 'If the fit is off, we will either reimburse you for minor adjustments made at a local cobbler or remake the pair for you free of charge'],
+    ['What materials do you use?', 'We source premium, durable materials including top-grain French leather. Insoles we use EVA from Italy']
 ];
 ?>
 <!doctype html>
@@ -233,19 +249,19 @@ $problems = [
                 <div class="product-styles-grid">
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
-                        <p>Walking Shoes</p>
+                        <p>Diabetic custom-made offload shoes</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
-                        <p>Dress Shoes</p>
+                        <p>custom made offload Insole</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
-                        <p>Sandals</p>
+                        <p>custom made flat feet insole</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
-                        <p>Boots</p>
+                        <p>Diabetic socks</p>
                     </div>
                 </div>
             </div>
@@ -305,6 +321,18 @@ $problems = [
                 <h3>Choose Your Style</h3>
                 <p>Pick from a variety of fashionable and functional designs.</p>
             </div>
+        </div>
+    </section>
+
+    <section id="faq" class="container reveal">
+        <h2 class="section-title">Q & A</h2>
+        <div class="faq-grid">
+            <?php foreach ($faqs as $faq): ?>
+                <article class="faq-item">
+                    <h3><?= e($faq[0]) ?></h3>
+                    <p><?= e($faq[1]) ?></p>
+                </article>
+            <?php endforeach; ?>
         </div>
     </section>
 
