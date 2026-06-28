@@ -112,7 +112,13 @@ function read_blog_posts(bool $publishedOnly = false): array
     storage_bootstrap();
     $raw = file_get_contents(BLOG_POSTS_FILE);
     $data = json_decode($raw, true);
+    if (!is_array($data)) {
+        $data = ['posts' => [], 'updated_at' => gmdate(DATE_ATOM)];
+    }
     $posts = $data['posts'] ?? [];
+    if (!is_array($posts)) {
+        $posts = [];
+    }
     if ($publishedOnly) {
         $posts = array_values(array_filter($posts, fn($post) => ($post['status'] ?? '') === 'Published'));
     }
@@ -137,16 +143,28 @@ function slugify(string $value): string
     return $value !== '' ? $value : 'post';
 }
 
+function sanitize_blog_slug(string $value): string
+{
+    $value = strtolower(trim($value));
+    $value = preg_replace('/[^a-z0-9-]+/', '-', $value) ?? '';
+    $value = preg_replace('/-+/', '-', $value) ?? '';
+    return trim($value, '-');
+}
+
 function unique_blog_slug(string $title, ?string $currentId = null): string
 {
     $base = slugify($title);
     $slug = $base;
     $counter = 2;
+    $existingSlugs = [];
     foreach (read_blog_posts(false) as $post) {
-        if (($post['id'] ?? '') !== $currentId && ($post['slug'] ?? '') === $slug) {
-            $slug = $base . '-' . $counter;
-            $counter++;
+        if (($post['id'] ?? '') !== $currentId && !empty($post['slug'])) {
+            $existingSlugs[$post['slug']] = true;
         }
+    }
+    while (isset($existingSlugs[$slug])) {
+        $slug = $base . '-' . $counter;
+        $counter++;
     }
     return $slug;
 }
@@ -165,11 +183,13 @@ function save_blog_post(array $payload, ?string $id = null): array
 {
     $posts = read_blog_posts(false);
     $now = date('Y-m-d H:i:s');
-    $status = in_array($payload['status'] ?? 'Draft', ['Draft', 'Published'], true) ? $payload['status'] : 'Draft';
+    $statusValue = $payload['status'] ?? 'Draft';
+    $status = in_array($statusValue, ['Draft', 'Published'], true) ? $statusValue : 'Draft';
+    $slugSource = $payload['slug'] ?? ($payload['title'] ?? 'post');
     $post = [
         'id' => $id ?: 'POST-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
         'title' => normalize_text($payload['title'] ?? '', 180),
-        'slug' => unique_blog_slug($payload['slug'] ?: ($payload['title'] ?? 'post'), $id),
+        'slug' => unique_blog_slug($slugSource, $id),
         'excerpt' => normalize_text($payload['excerpt'] ?? '', 300),
         'content' => trim((string) ($payload['content'] ?? '')),
         'status' => $status,

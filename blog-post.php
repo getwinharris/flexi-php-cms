@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
-$slug = normalize_text($_GET['slug'] ?? '', 180);
+$slug = sanitize_blog_slug((string) ($_GET['slug'] ?? ''));
 $post = $slug !== '' ? find_blog_post($slug, true) : null;
 http_response_code($post ? 200 : 404);
 ?>

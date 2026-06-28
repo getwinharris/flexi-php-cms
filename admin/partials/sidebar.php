@@ -3,7 +3,7 @@
     <a href="index.php" class="wp-brand"><img src="../assets/images/flexi-feet-logo.png" alt="Flexi Feet"></a>
     <nav>
         <a class="<?= $current === 'index.php' ? 'active' : '' ?>" href="index.php">Dashboard</a>
-        <a class="<?= $current === 'index.php' ? 'active' : '' ?>" href="index.php#appointments">Appointments</a>
+        <a href="index.php#appointments">Appointments</a>
         <div class="menu-group">
             <span>Posts</span>
             <a class="<?= $current === 'posts.php' ? 'active' : '' ?>" href="posts.php">All Posts</a>
