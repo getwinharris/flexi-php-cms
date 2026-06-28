@@ -509,6 +509,10 @@
     margin: 6px 0;
 }
 
+.seo-checklist-mini li.ok {
+    color: #18883a;
+}
+
 .upload-panel {
     align-items: center;
     display: flex;
