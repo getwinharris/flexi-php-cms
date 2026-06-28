@@ -2,4 +2,6 @@ deploy.zip
 .vscode/
 .DS_Store
 storage/appointments.json
+storage/blog-posts.json
+includes/config.local.php
 .gemini/

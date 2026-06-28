@@ -118,6 +118,7 @@ $faqs = [
                 <li><a href="#products">Products</a></li>
                 <li><a href="#technology">Technology</a></li>
                 <li><a href="#conditions">Conditions</a></li>
+                <li><a href="blog.php">Blog</a></li>
                 <li><a href="#process">Process</a></li>
             </ul>
         </nav>
@@ -388,7 +389,7 @@ $faqs = [
                     </div>
                     <div class="form-group">
                         <label>Email Address</label>
-                        <input type="email" name="email" placeholder="john@example.com">
+                        <input type="email" name="email" required placeholder="john@example.com">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div class="form-group">
