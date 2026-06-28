@@ -29,6 +29,7 @@ $posts = read_blog_posts(true);
         ], array_slice($posts, 0, 10))
     ]); ?>
     <?php render_google_analytics(); ?>
+    <?php render_google_adsense(); ?>
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>

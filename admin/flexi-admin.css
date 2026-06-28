@@ -181,6 +181,35 @@
     color: #666;
 }
 
+.wp-status.new {
+    background: #e5f1ff;
+    color: #0066cc;
+}
+
+.wp-status.confirmed {
+    background: #eaffef;
+    color: #18883a;
+}
+
+.wp-status.completed {
+    background: #f5f5f7;
+    color: #666;
+}
+
+.wp-status.cancelled {
+    background: #fff2f2;
+    color: #b42318;
+}
+
+.action-select {
+    background: #fff;
+    border: 1px solid var(--apple-gray-200);
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    padding: 8px 10px;
+}
+
 .link-danger {
     background: none;
     border: 0;
@@ -348,6 +377,14 @@
 .seo-section-panel {
     margin-bottom: 18px;
     padding: 20px;
+}
+
+.seo-report-panel {
+    background: #f8fbfd;
+    border: 1px solid var(--apple-gray-200);
+    border-radius: 8px;
+    margin-bottom: 22px;
+    padding: 18px;
 }
 
 .seo-section-panel h2 {
@@ -766,6 +803,177 @@
     padding: 24px;
 }
 
+/* Google Site Kit - Connection Checks Dashboard */
+.google-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.google-check-card {
+    border: 1px solid var(--apple-gray-200);
+    border-radius: 8px;
+    background: #fff;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.google-check-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.google-check-card strong {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    align-self: flex-start;
+}
+
+.google-check-card.ok strong {
+    background: #eaffef;
+    color: #18883a;
+}
+
+.google-check-card.todo strong {
+    background: #fff6df;
+    color: #9a5a00;
+}
+
+.google-check-card.ok {
+    border-left: 4px solid #34c759;
+}
+
+.google-check-card.todo {
+    border-left: 4px solid #ff9500;
+}
+
+.google-check-card span {
+    font-weight: 700;
+    color: var(--logo-navy);
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+.google-check-card p {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 0;
+    word-break: break-all;
+}
+
+/* PageSpeed Insights Dashboard Widget */
+.pagespeed-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 16px;
+}
+
+.pagespeed-card {
+    background: #fff;
+    border: 1px solid var(--apple-gray-200);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.pagespeed-card h3 {
+    font-size: 16px;
+    color: var(--logo-navy);
+    margin: 0 0 14px 0;
+    align-self: flex-start;
+    border-bottom: 2px solid var(--apple-gray-200);
+    padding-bottom: 6px;
+    width: 100%;
+    text-align: left;
+}
+
+.pagespeed-score {
+    font-size: 38px;
+    font-weight: 800;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 20px;
+    background: #f5f5f7;
+    border: 6px solid #e8e8ed;
+}
+
+.pagespeed-score.good {
+    border-color: #34c759;
+    color: #18883a;
+    background: #eaffef;
+}
+.pagespeed-score.warn {
+    border-color: #ff9500;
+    color: #9a5a00;
+    background: #fff6df;
+}
+.pagespeed-score.bad {
+    border-color: #ff3b30;
+    color: #b42318;
+    background: #fff2f2;
+}
+
+.score-good {
+    color: #18883a !important;
+    font-weight: 700;
+}
+.score-warn {
+    color: #9a5a00 !important;
+    font-weight: 700;
+}
+.score-bad {
+    color: #b42318 !important;
+    font-weight: 700;
+}
+
+.pagespeed-card dl {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin: 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--apple-gray-200);
+    gap: 8px;
+}
+
+.pagespeed-card dl div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pagespeed-card dt {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.pagespeed-card dd {
+    font-size: 16px;
+    margin: 0;
+}
+
 @media (max-width: 900px) {
     .wp-sidebar {
         position: static;
@@ -787,7 +995,9 @@
 
     .seo-dashboard-grid,
     .seo-checklist-grid,
-    .seo-two-col {
+    .seo-two-col,
+    .google-check-grid,
+    .pagespeed-grid {
         grid-template-columns: 1fr;
     }
 

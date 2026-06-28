@@ -13,7 +13,6 @@
         <a class="<?= $current === 'reels.php' ? 'active' : '' ?>" href="reels.php">Instagram Reels</a>
         <a class="<?= $current === 'tickets.php' ? 'active' : '' ?>" href="tickets.php">Support Tickets</a>
         <a class="<?= $current === 'ai-writer.php' ? 'active' : '' ?>" href="ai-writer.php">AI Writer</a>
-        <a class="<?= $current === 'seo.php' ? 'active' : '' ?>" href="seo.php">Google SEO</a>
         <a class="<?= $current === 'settings.php' ? 'active' : '' ?>" href="settings.php">Settings</a>
         <a href="../" target="_blank">View Website</a>
     </nav>

@@ -37,6 +37,7 @@ http_response_code($post ? 200 : 404);
         <?php render_seo_tags('Post Not Found | Flexi Feet', 'This Flexi Feet blog post is unavailable.', 'blog.php'); ?>
     <?php endif; ?>
     <?php render_google_analytics(); ?>
+    <?php render_google_adsense(); ?>
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>

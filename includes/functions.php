@@ -686,19 +686,12 @@ function render_google_analytics(): void
     echo "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','" . $id . "');</script>\n";
 }
 
-function current_seo_settings(): array
+function render_google_adsense(): void
 {
-    return [
-        'GA_MEASUREMENT_ID' => GA_MEASUREMENT_ID,
-        'GOOGLE_SITE_VERIFICATION' => GOOGLE_SITE_VERIFICATION,
-        'DEFAULT_SEO_TITLE' => DEFAULT_SEO_TITLE,
-        'DEFAULT_SEO_DESCRIPTION' => DEFAULT_SEO_DESCRIPTION,
-        'DEFAULT_SOCIAL_IMAGE' => DEFAULT_SOCIAL_IMAGE,
-        'GOOGLE_SERVICE_ACCOUNT_EMAIL' => GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_SET' => GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY !== '',
-        'GA4_PROPERTY_ID' => GA4_PROPERTY_ID,
-        'SEARCH_CONSOLE_SITE_URL' => SEARCH_CONSOLE_SITE_URL,
-    ];
+    if (GOOGLE_ADSENSE_CLIENT_ID === '') {
+        return;
+    }
+    echo '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' . e(GOOGLE_ADSENSE_CLIENT_ID) . '" crossorigin="anonymous"></script>' . "\n";
 }
 
 function base64url_encode_string(string $value): string
@@ -733,6 +726,32 @@ function google_http_post(string $url, array $headers, string $body): array
     $data = json_decode((string) $raw, true);
     return [
         'ok' => $status >= 200 && $status < 300,
+        'status' => $status,
+        'data' => is_array($data) ? $data : [],
+        'raw' => (string) $raw,
+    ];
+}
+
+function google_http_get(string $url): array
+{
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 30,
+            'ignore_errors' => true,
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    $status = 0;
+    foreach (($http_response_header ?? []) as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+            $status = (int) $matches[1];
+            break;
+        }
+    }
+    $data = json_decode((string) $raw, true);
+    return [
+        'ok' => $status >= 200 && $status < 300 && is_array($data),
         'status' => $status,
         'data' => is_array($data) ? $data : [],
         'raw' => (string) $raw,
@@ -916,6 +935,70 @@ function google_seo_report(bool $force = false): array
     return $report;
 }
 
+function google_pagespeed_report(bool $force = false): array
+{
+    $cacheFile = STORAGE_DIR . '/google-pagespeed-cache.json';
+    if (!$force && is_file($cacheFile) && (time() - filemtime($cacheFile)) < 21600) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($cached)) {
+            $cached['cached'] = true;
+            return $cached;
+        }
+    }
+
+    $report = [
+        'ok' => false,
+        'cached' => false,
+        'message' => 'PageSpeed Insights has not returned data yet.',
+        'strategies' => [],
+    ];
+    foreach (['mobile', 'desktop'] as $strategy) {
+        $url = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=' . rawurlencode(SITE_URL) . '&strategy=' . $strategy . '&category=performance&category=seo&category=accessibility&category=best-practices';
+        if (GOOGLE_PAGESPEED_API_KEY !== '') {
+            $url .= '&key=' . rawurlencode(GOOGLE_PAGESPEED_API_KEY);
+        }
+        $response = google_http_get($url);
+        if (!$response['ok']) {
+            $report['strategies'][$strategy] = [
+                'ok' => false,
+                'message' => $response['data']['error']['message'] ?? 'PageSpeed request failed.',
+            ];
+            continue;
+        }
+        $categories = $response['data']['lighthouseResult']['categories'] ?? [];
+        $report['strategies'][$strategy] = [
+            'ok' => true,
+            'performance' => isset($categories['performance']['score']) ? (int) round($categories['performance']['score'] * 100) : null,
+            'seo' => isset($categories['seo']['score']) ? (int) round($categories['seo']['score'] * 100) : null,
+            'accessibility' => isset($categories['accessibility']['score']) ? (int) round($categories['accessibility']['score'] * 100) : null,
+            'best_practices' => isset($categories['best-practices']['score']) ? (int) round($categories['best-practices']['score'] * 100) : null,
+            'message' => '',
+        ];
+    }
+
+    $report['ok'] = count(array_filter($report['strategies'], fn($item) => $item['ok'] ?? false)) > 0;
+    $report['message'] = $report['ok'] ? '' : 'Connect internet/API access or add a PageSpeed API key if quota is limited.';
+    if ($report['ok']) {
+        file_put_contents($cacheFile, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    }
+    return $report;
+}
+
+function google_connection_checks(array $seoReport, array $pagespeedReport): array
+{
+    return [
+        ['label' => 'Search Console verification tag', 'ok' => GOOGLE_SITE_VERIFICATION !== '', 'detail' => GOOGLE_SITE_VERIFICATION !== '' ? 'Meta verification is configured.' : 'Paste the verification content value.'],
+        ['label' => 'Analytics web tag', 'ok' => GA_MEASUREMENT_ID !== '', 'detail' => GA_MEASUREMENT_ID !== '' ? GA_MEASUREMENT_ID : 'Add the GA4 Measurement ID.'],
+        ['label' => 'AdSense publisher tag', 'ok' => GOOGLE_ADSENSE_CLIENT_ID !== '', 'detail' => GOOGLE_ADSENSE_CLIENT_ID !== '' ? GOOGLE_ADSENSE_CLIENT_ID : 'Add the AdSense Publisher Client ID.'],
+        ['label' => 'Service account', 'ok' => google_service_account_ready(), 'detail' => google_service_account_ready() ? 'Private reporting auth is configured.' : 'Add service account email and private key.'],
+        ['label' => 'GA4 reporting', 'ok' => $seoReport['ga4']['ok'] ?? false, 'detail' => ($seoReport['ga4']['ok'] ?? false) ? 'Analytics data can be fetched.' : ($seoReport['ga4']['message'] ?? 'GA4 not connected.')],
+        ['label' => 'Search Console reporting', 'ok' => $seoReport['search_console']['ok'] ?? false, 'detail' => ($seoReport['search_console']['ok'] ?? false) ? 'Search data can be fetched.' : ($seoReport['search_console']['message'] ?? 'Search Console not connected.')],
+        ['label' => 'Sitemap', 'ok' => is_file(__DIR__ . '/../sitemap.php'), 'detail' => absolute_url('sitemap.php')],
+        ['label' => 'Robots file', 'ok' => is_file(__DIR__ . '/../robots.txt'), 'detail' => absolute_url('robots.txt')],
+        ['label' => 'PageSpeed Insights', 'ok' => $pagespeedReport['ok'] ?? false, 'detail' => ($pagespeedReport['ok'] ?? false) ? 'Performance report is available.' : ($pagespeedReport['message'] ?? 'PageSpeed not ready.')],
+    ];
+}
+
 function smtp_configured(): bool
 {
     return SMTP_PASSWORD !== '' && SMTP_USERNAME !== '' && SMTP_HOST !== '';
@@ -1057,6 +1140,8 @@ function current_mail_settings(): array
         'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_SET' => GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY !== '',
         'GA4_PROPERTY_ID' => GA4_PROPERTY_ID,
         'SEARCH_CONSOLE_SITE_URL' => SEARCH_CONSOLE_SITE_URL,
+        'GOOGLE_ADSENSE_CLIENT_ID' => GOOGLE_ADSENSE_CLIENT_ID,
+        'GOOGLE_PAGESPEED_API_KEY_SET' => GOOGLE_PAGESPEED_API_KEY !== '',
         'GOOGLE_AI_API_KEY_SET' => GOOGLE_AI_API_KEY !== '',
         'GOOGLE_AI_MODEL' => GOOGLE_AI_MODEL,
         'AUTOMATION_TOKEN_SET' => AUTOMATION_TOKEN !== '',
@@ -1083,6 +1168,8 @@ function save_mail_settings(array $payload): array
         'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY' => (string) ($payload['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] ?? ''),
         'GA4_PROPERTY_ID' => normalize_text($payload['GA4_PROPERTY_ID'] ?? '', 80),
         'SEARCH_CONSOLE_SITE_URL' => normalize_text($payload['SEARCH_CONSOLE_SITE_URL'] ?? SITE_URL, 220),
+        'GOOGLE_ADSENSE_CLIENT_ID' => normalize_text($payload['GOOGLE_ADSENSE_CLIENT_ID'] ?? '', 80),
+        'GOOGLE_PAGESPEED_API_KEY' => (string) ($payload['GOOGLE_PAGESPEED_API_KEY'] ?? ''),
         'GOOGLE_AI_API_KEY' => (string) ($payload['GOOGLE_AI_API_KEY'] ?? ''),
         'GOOGLE_AI_MODEL' => normalize_text($payload['GOOGLE_AI_MODEL'] ?? 'gemma-4-31b-it', 80),
         'AUTOMATION_TOKEN' => (string) ($payload['AUTOMATION_TOKEN'] ?? ''),
@@ -1111,6 +1198,9 @@ function save_mail_settings(array $payload): array
     if ($settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] === '') {
         $settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'] = GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
     }
+    if ($settings['GOOGLE_PAGESPEED_API_KEY'] === '') {
+        $settings['GOOGLE_PAGESPEED_API_KEY'] = GOOGLE_PAGESPEED_API_KEY;
+    }
     if ($settings['AUTOMATION_TOKEN'] === '') {
         $settings['AUTOMATION_TOKEN'] = AUTOMATION_TOKEN;
     }
@@ -1134,6 +1224,8 @@ function save_mail_settings(array $payload): array
     $content .= "define('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', " . var_export($settings['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'], true) . ");\n";
     $content .= "define('GA4_PROPERTY_ID', " . var_export($settings['GA4_PROPERTY_ID'], true) . ");\n";
     $content .= "define('SEARCH_CONSOLE_SITE_URL', " . var_export($settings['SEARCH_CONSOLE_SITE_URL'], true) . ");\n";
+    $content .= "define('GOOGLE_ADSENSE_CLIENT_ID', " . var_export($settings['GOOGLE_ADSENSE_CLIENT_ID'], true) . ");\n";
+    $content .= "define('GOOGLE_PAGESPEED_API_KEY', " . var_export($settings['GOOGLE_PAGESPEED_API_KEY'], true) . ");\n";
     $content .= "define('GOOGLE_AI_API_KEY', " . var_export($settings['GOOGLE_AI_API_KEY'], true) . ");\n";
     $content .= "define('GOOGLE_AI_MODEL', " . var_export($settings['GOOGLE_AI_MODEL'], true) . ");\n";
     $content .= "define('AUTOMATION_TOKEN', " . var_export($settings['AUTOMATION_TOKEN'], true) . ");\n";
