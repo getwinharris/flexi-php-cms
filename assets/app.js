@@ -70,19 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (document.querySelector('.blog-preview-swiper')) {
+        new Swiper('.blog-preview-swiper', {
+            slidesPerView: 1.1,
+            spaceBetween: 18,
+            watchOverflow: true,
+            pagination: {
+                el: '.blog-preview-pagination',
+                clickable: true,
+            },
+            breakpoints: {
+                700: { slidesPerView: 2, spaceBetween: 22 },
+                1024: { slidesPerView: 3, spaceBetween: 26 }
+            }
+        });
+    }
+
     // Swiper: Shorts (Reels Style)
     if (document.querySelector('.shorts-swiper')) {
-        const resetPlayingShorts = () => {
-            document.querySelectorAll('.shorts-card.is-playing').forEach(card => {
-                const iframe = card.querySelector('iframe');
-                if (iframe) {
-                    iframe.remove();
-                }
-                card.classList.remove('is-playing');
-                card.removeAttribute('aria-pressed');
-            });
-        };
-
         const shortsSwiper = new Swiper('.shorts-swiper', {
             loop: true,
             centeredSlides: true,
@@ -107,34 +112,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 768: { slidesPerView: 2.35, spaceBetween: 24 },
                 1024: { slidesPerView: 'auto', spaceBetween: 30 }
             },
-            on: {
-                slideChangeTransitionStart: resetPlayingShorts,
+        });
+    }
+
+    // FAQ accordion, search, and filters
+    const faqRoot = document.querySelector('[data-faq]');
+    if (faqRoot) {
+        const faqItems = Array.from(faqRoot.querySelectorAll('[data-faq-item]'));
+        const faqSearch = faqRoot.querySelector('[data-faq-search]');
+        const faqEmpty = faqRoot.querySelector('[data-faq-empty]');
+        const faqFilters = Array.from(faqRoot.querySelectorAll('[data-faq-filter]'));
+        let activeFilter = 'all';
+
+        const setFaqItem = (item, shouldOpen) => {
+            const answer = item.querySelector('.faq-answer');
+            const question = item.querySelector('.faq-question');
+
+            item.classList.toggle('active', shouldOpen);
+            question?.setAttribute('aria-expanded', String(shouldOpen));
+
+            if (answer) {
+                answer.hidden = !shouldOpen;
             }
+        };
+
+        const applyFaqFilters = () => {
+            const query = faqSearch?.value.trim().toLowerCase() || '';
+            let visibleCount = 0;
+
+            faqItems.forEach(item => {
+                const itemText = item.textContent.toLowerCase();
+                const categoryMatches = activeFilter === 'all' || item.dataset.category === activeFilter;
+                const searchMatches = !query || itemText.includes(query);
+                const isVisible = categoryMatches && searchMatches;
+
+                item.hidden = !isVisible;
+                if (isVisible) {
+                    visibleCount += 1;
+                } else {
+                    setFaqItem(item, false);
+                }
+            });
+
+            if (faqEmpty) {
+                faqEmpty.hidden = visibleCount > 0;
+            }
+        };
+
+        faqItems.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            question?.addEventListener('click', () => {
+                const shouldOpen = !item.classList.contains('active');
+                setFaqItem(item, shouldOpen);
+            });
         });
 
-        const shortsContainer = document.querySelector('.shorts-swiper');
-        shortsContainer?.addEventListener('click', (event) => {
-            const card = event.target.closest('.shorts-card');
-            if (!card || !shortsContainer.contains(card)) return;
+        faqSearch?.addEventListener('input', applyFaqFilters);
 
-            const videoId = card.dataset.videoId;
-            if (!videoId) return;
+        faqFilters.forEach(filter => {
+            filter.addEventListener('click', () => {
+                activeFilter = filter.dataset.faqFilter || 'all';
+                faqFilters.forEach(item => item.classList.toggle('active', item === filter));
+                applyFaqFilters();
+            });
+        });
 
-            const wasPlaying = card.classList.contains('is-playing');
-            resetPlayingShorts();
+        faqRoot.querySelector('[data-faq-expand]')?.addEventListener('click', () => {
+            faqItems.filter(item => !item.hidden).forEach(item => setFaqItem(item, true));
+        });
 
-            if (wasPlaying) return;
-
-            shortsSwiper.autoplay?.stop();
-            card.classList.add('is-playing');
-            card.setAttribute('aria-pressed', 'true');
-
-            const iframe = document.createElement('iframe');
-            iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
-            iframe.title = 'Flexi Feet YouTube Short';
-            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            iframe.allowFullscreen = true;
-            card.appendChild(iframe);
+        faqRoot.querySelector('[data-faq-collapse]')?.addEventListener('click', () => {
+            faqItems.forEach(item => setFaqItem(item, false));
         });
     }
 
@@ -226,6 +274,81 @@ document.addEventListener('DOMContentLoaded', () => {
             header.style.boxShadow = '0 4px 30px rgba(0, 0, 0, 0.1)';
         } else {
             header.style.boxShadow = 'none';
+        }
+    });
+
+    const supportPanel = document.querySelector('[data-support-panel]');
+    const supportMessages = document.querySelector('[data-support-messages]');
+    const supportDetail = document.querySelector('[data-support-detail]');
+    const supportDetailTitle = document.querySelector('[data-support-detail-title]');
+    const setSupportMode = (mode) => {
+        if (!supportDetail) return;
+        supportDetail.removeAttribute('hidden');
+        supportDetail.querySelector('[name="action"]').value = mode;
+        supportDetail.querySelectorAll('[data-booking-field]').forEach((field) => field.hidden = mode !== 'booking');
+        supportDetail.querySelectorAll('[data-ticket-field]').forEach((field) => field.hidden = mode !== 'ticket');
+        if (supportDetailTitle) {
+            supportDetailTitle.textContent = mode === 'booking' ? 'Appointment details' : 'Support ticket details';
+        }
+    };
+    const appendSupportMessage = (text, type = 'bot', suggestions = []) => {
+        if (!supportMessages) return;
+        const item = document.createElement('div');
+        item.className = `${type}-message`;
+        item.textContent = text;
+        supportMessages.appendChild(item);
+        suggestions.forEach((suggestion) => {
+            const link = document.createElement('a');
+            link.className = 'bot-suggestion';
+            link.href = suggestion.url;
+            link.textContent = suggestion.title;
+            supportMessages.appendChild(link);
+        });
+        supportMessages.scrollTop = supportMessages.scrollHeight;
+    };
+
+    document.querySelectorAll('[data-support-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const isHidden = supportPanel?.hasAttribute('hidden');
+            if (isHidden) supportPanel?.removeAttribute('hidden');
+            else supportPanel?.setAttribute('hidden', '');
+            document.querySelector('[data-support-toggle]')?.setAttribute('aria-expanded', String(isHidden));
+        });
+    });
+
+    document.querySelector('[data-support-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const message = form.message.value.trim();
+        if (!message) return;
+        appendSupportMessage(message, 'user');
+        form.reset();
+        const body = new FormData();
+        body.append('action', 'message');
+        body.append('message', message);
+        const response = await fetch('api/support-bot.php', { method: 'POST', body });
+        const result = await response.json();
+        appendSupportMessage(result.reply || result.message, 'bot', result.suggestions || []);
+        if (result.intent === 'booking') setSupportMode('booking');
+        if (result.intent === 'ticket') setSupportMode('ticket');
+    });
+
+    document.querySelectorAll('[data-support-mode]').forEach((button) => {
+        button.addEventListener('click', () => {
+            setSupportMode(button.dataset.supportMode);
+        });
+    });
+
+    supportDetail?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const body = new FormData(form);
+        const response = await fetch('api/support-bot.php', { method: 'POST', body });
+        const result = await response.json();
+        appendSupportMessage(result.ok ? `${result.message} ${result.appointment_id || result.ticket_id || ''}` : result.message, result.ok ? 'bot' : 'user');
+        if (result.ok) {
+            form.reset();
+            form.setAttribute('hidden', '');
         }
     });
 });

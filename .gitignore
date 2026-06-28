@@ -3,5 +3,9 @@ deploy.zip
 .DS_Store
 storage/appointments.json
 storage/blog-posts.json
+storage/instagram-reels.json
+storage/support-tickets.json
 includes/config.local.php
+assets/uploads/*
+!assets/uploads/.gitkeep
 .gemini/

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
-$slug = normalize_text($_GET['slug'] ?? '', 180);
+$slug = sanitize_blog_slug((string) ($_GET['slug'] ?? ''));
 $post = $slug !== '' ? find_blog_post($slug, true) : null;
 http_response_code($post ? 200 : 404);
 ?>
@@ -9,8 +9,35 @@ http_response_code($post ? 200 : 404);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $post ? e($post['title']) : 'Post Not Found' ?> | Flexi Feet</title>
     <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <?php if ($post): ?>
+        <?php render_seo_tags(
+            post_seo_title($post),
+            post_seo_description($post),
+            post_canonical_path($post),
+            post_social_image($post),
+            'article'
+        ); ?>
+        <?php if (post_noindex($post)): ?>
+            <meta name="robots" content="noindex,follow">
+        <?php endif; ?>
+        <?php render_json_ld([
+            '@context' => 'https://schema.org',
+            '@type' => 'BlogPosting',
+            'headline' => $post['title'],
+            'description' => post_seo_description($post),
+            'image' => absolute_url(post_social_image($post)),
+            'datePublished' => $post['published_at'] ?: $post['created_at'],
+            'dateModified' => $post['updated_at'] ?? ($post['published_at'] ?: $post['created_at']),
+            'author' => ['@type' => 'Organization', 'name' => BUSINESS_NAME],
+            'publisher' => ['@type' => 'Organization', 'name' => BUSINESS_NAME, 'logo' => ['@type' => 'ImageObject', 'url' => absolute_url('assets/images/flexi-feet-logo.png')]],
+            'mainEntityOfPage' => absolute_url('blog-post.php?slug=' . $post['slug'])
+        ]); ?>
+    <?php else: ?>
+        <?php render_seo_tags('Post Not Found | Flexi Feet', 'This Flexi Feet blog post is unavailable.', 'blog.php'); ?>
+    <?php endif; ?>
+    <?php render_google_analytics(); ?>
+    <?php render_google_adsense(); ?>
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>

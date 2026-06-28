@@ -5,9 +5,11 @@ A self-contained, high-performance website and CRM built for Flexi Feet Sdn Bhd.
 ## Features
 
 - **Apple Standard UI**: High-end minimalist design, glassmorphism, and smooth scroll animations.
-- **Dynamic Content**: Integrated YouTube Shorts ("Flexi Stories") scrolling section.
+- **Dynamic Content**: Admin-managed Instagram Reels ("Flexi Stories") scrolling section.
 - **Self-Contained CRM**: A built-in admin dashboard to manage appointments stored in a local JSON database.
 - **Blog CMS**: Admin-managed posts with draft/published states and public blog pages.
+- **Media Library**: WordPress-style image uploads for blog featured images, inline blog media, and Reel thumbnails.
+- **Instagram Reels Manager**: Admin-managed Reel URLs with thumbnail attachment and drag-and-drop ordering.
 - **SMTP Notifications**: Booking requests can email the site owner and send the customer a confirmation via Hostinger SMTP.
 - **3D Scanning Section**: Highlights the advanced Italian foot scanning technology.
 - **Comprehensive Foot Care**: Detailed sections for 10 common diabetic and orthopaedic foot conditions.
@@ -16,7 +18,7 @@ A self-contained, high-performance website and CRM built for Flexi Feet Sdn Bhd.
 ## Deployment
 
 1. Upload all files in this directory to your Hostinger `public_html` folder.
-2. Ensure the `storage/` folder is writable by the server (usually `755` permission).
+2. Ensure the `storage/` and `assets/uploads/` folders are writable by the server (usually `755` permission).
 3. Copy `includes/config.local.example.php` to `includes/config.local.php` on the server and add the real SMTP password.
 4. Access your site at `yourdomain.com`.
 
@@ -40,6 +42,6 @@ Then visit `http://localhost:8000` in your browser.
 
 - **Frontend**: Vanilla JavaScript & Modern CSS (Grid, Flexbox, Backdrop-filter).
 - **Backend**: PHP 7.4+.
-- **Database**: `storage/appointments.json` and `storage/blog-posts.json` (Atomic file-locked JSON storage).
+- **Database**: `storage/appointments.json`, `storage/blog-posts.json`, and `storage/instagram-reels.json` (Atomic file-locked JSON storage).
 - **Icons**: Custom embedded SVG icons for zero external requests.
 - **Fonts**: 'Inter' imported via Google Fonts for premium typography.
