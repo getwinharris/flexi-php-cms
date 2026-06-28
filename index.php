@@ -238,10 +238,10 @@ $faqs = [
                 <h2 style="font-size: 32px; margin-bottom: 20px;">Custom Diabetic Shoes</h2>
                 <p>Our custom shoes are made to accommodate common diabetic foot issues such as neuropathy, poor circulation, and foot deformities. Choose from a wide range of styles, widths, and features:</p>
                 <ul class="check-list" style="margin-top: 20px;">
-                    <li>Orthotic-Friendly Soles</li>
-                    <li>Extra Depth & Width Options</li>
-                    <li>Seamless Interior to Prevent Irritation</li>
-                    <li>Breathable, Durable Materials</li>
+                    <li>Diabetic custom-made offload shoes</li>
+                    <li>custom made offload Insole</li>
+                    <li>custom made flat feet insole</li>
+                    <li>Diabetic socks</li>
                 </ul>
             </div>
             <div class="product-styles-panel">
@@ -249,19 +249,15 @@ $faqs = [
                 <div class="product-styles-grid">
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
-                        <p>Diabetic custom-made offload shoes</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
-                        <p>custom made offload Insole</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
-                        <p>custom made flat feet insole</p>
                     </div>
                     <div class="product-style-card hover-lift">
                         <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
-                        <p>Diabetic socks</p>
                     </div>
                 </div>
             </div>
