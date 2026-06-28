@@ -548,7 +548,7 @@ nav ul li a:hover {
 }
 
 .product-style-card {
-    min-height: 220px;
+    min-height: 183px;
     padding: 18px;
     text-align: center;
     background: var(--apple-white);
@@ -563,7 +563,6 @@ nav ul li a:hover {
     display: block;
     object-fit: cover;
     border-radius: var(--radius-sm);
-    margin-bottom: 14px;
 }
 
 .product-style-card p {
