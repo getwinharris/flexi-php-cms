@@ -322,6 +322,18 @@ $faqs = [
         </div>
     </section>
 
+    <section id="faq" class="container reveal">
+        <h2 class="section-title">Q & A</h2>
+        <div class="faq-grid">
+            <?php foreach ($faqs as $faq): ?>
+                <article class="faq-item">
+                    <h3><?= e($faq[0]) ?></h3>
+                    <p><?= e($faq[1]) ?></p>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
     <section id="booking" class="booking-section">
         <div class="container booking-container">
             <div class="booking-text">
