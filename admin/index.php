@@ -10,6 +10,7 @@ usort($appointments, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
 $total = count($appointments);
 $new = count(array_filter($appointments, fn($appointment) => ($appointment['status'] ?? '') === 'New'));
 $confirmed = count(array_filter($appointments, fn($appointment) => ($appointment['status'] ?? '') === 'Confirmed'));
+$nextSlots = recommended_appointment_slots(date('Y-m-d'), 8);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -48,6 +49,23 @@ $confirmed = count(array_filter($appointments, fn($appointment) => ($appointment
                 <p>Appointments marked confirmed.</p>
             </div>
         </div>
+
+        <section class="wp-panel seo-section-panel">
+            <div class="section-heading-row">
+                <div>
+                    <h2>Next Available Slots</h2>
+                    <p>Used by the website support agent and MCP booking endpoint to recommend appointment times.</p>
+                </div>
+            </div>
+            <div class="availability-slot-list">
+                <?php foreach ($nextSlots as $slot): ?>
+                    <span><?= e($slot['date']) ?> at <?= e($slot['time']) ?></span>
+                <?php endforeach; ?>
+                <?php if (empty($nextSlots)): ?>
+                    <span>No available slots found in the next 21 days.</span>
+                <?php endif; ?>
+            </div>
+        </section>
 
         <section class="wp-panel seo-section-panel" id="appointments">
             <div class="section-heading-row">

@@ -1,0 +1,54 @@
+# Flexi Feet Sdn Bhd
+
+> Flexi Feet Sdn Bhd provides custom footwear, orthopaedic insoles, foot scanning, diabetic socks, and appointment-based fitting services in Sentul, Kuala Lumpur, Malaysia.
+
+This file helps AI assistants and search agents find the most useful Flexi Feet resources. Agents landing on the website should read this file first, then use the MCP booking endpoint when appointment tools are needed. Prefer the links below over duplicate, archived, admin, or low-value pages.
+
+## Canonical Website Pages
+
+- [Home, services, technology, conditions, FAQs, and booking form](https://flexifeet.net/): Main public page for Flexi Feet services, products, 3D foot scanning, common foot conditions, FAQs, and the appointment request form.
+- [Blog index](https://flexifeet.net/blog.php): Public educational articles about custom footwear, orthopaedic insoles, foot assessment, and foot-care topics.
+- [Sitemap](https://flexifeet.net/sitemap.php): XML sitemap for public crawlable pages and published blog posts.
+
+## Appointment Booking For Agents
+
+- [MCP booking endpoint](https://flexifeet.net/mcp.php): JSON-RPC MCP endpoint for AI agents that need to check available slots and create an appointment request.
+
+MCP URL: `https://flexifeet.net/mcp.php`
+
+Use the MCP `get_available_slots` tool first to check real appointment availability from Flexi Feet's appointment records. Then use `book_appointment` when the user has clearly asked to book or request a Flexi Feet appointment and has confirmed an available slot. Required booking fields are:
+
+- `name`
+- `phone`
+- `email`
+- `preferred_date` in `YYYY-MM-DD`
+- `preferred_time` in `HH:MM`
+- `visit_type`
+
+Optional field:
+
+- `notes`
+
+The booking endpoint creates an appointment request and returns an appointment reference ID. The Flexi Feet team will review and confirm availability.
+
+## Public Service Topics
+
+- Custom footwear and therapeutic comfort shoes
+- Custom offload insoles
+- Flat feet insoles
+- Orthopaedic and diabetic footwear support
+- Diabetic and compression socks
+- 3D foot scanning and pressure assessment
+- Fittings, consultations, follow-ups, and home visit questions
+
+## Agent Guidance
+
+- Do not crawl or use `/admin/` pages.
+- Do not submit `/api/booking.php` directly unless using the browser form with a valid CSRF token.
+- For direct agent booking, use `/mcp.php` and the `book_appointment` MCP tool.
+- Keep medical claims careful: Flexi Feet provides assessment, footwear, insole, and support services; do not claim cures or guaranteed medical outcomes.
+- For urgent medical problems, advise users to contact a qualified healthcare professional or emergency service.
+
+## Optional
+
+- [Robots file](https://flexifeet.net/robots.txt): Crawl policy.

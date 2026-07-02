@@ -36,7 +36,7 @@ $mediaFiles = list_media_files();
         <div class="wp-topbar">
             <div>
                 <h1>Media Library</h1>
-                <p>Upload images for blog posts, reel thumbnails, and website content.</p>
+                <p>Upload images for blog posts and website content. Reel thumbnails are generated automatically from reel URLs.</p>
             </div>
         </div>
 
@@ -52,7 +52,7 @@ $mediaFiles = list_media_files();
         <div class="media-library-grid">
             <?php foreach ($mediaFiles as $media): ?>
                 <article class="media-card">
-                    <img src="../<?= e($media['path']) ?>" alt="<?= e($media['name']) ?>">
+                    <img src="<?= e(admin_media_src($media['path'])) ?>" alt="<?= e($media['name']) ?>">
                     <div>
                         <strong><?= e($media['name']) ?></strong>
                         <input type="text" value="<?= e($media['path']) ?>" readonly onclick="this.select()">

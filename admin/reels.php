@@ -26,36 +26,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $url = sanitize_external_url((string) ($_POST['url'] ?? ''));
             if ($url === '' || !is_social_reel_url($url)) {
                 $error = 'Enter a valid Instagram Reel or YouTube Shorts URL.';
+            } elseif (reel_thumbnail_from_url($url) === '') {
+                $error = 'Use a direct Instagram Reel URL so the thumbnail can be generated automatically.';
             } else {
-                $thumbnail = normalize_text($_POST['thumbnail'] ?? '', 300);
-                if (isset($_FILES['thumbnail_upload'])) {
-                    $upload = handle_media_upload($_FILES['thumbnail_upload']);
-                    if (!$upload['ok']) {
-                        $error = $upload['message'];
-                    } elseif ($upload['path'] !== '') {
-                        $thumbnail = $upload['path'];
-                    }
-                }
-                if ($error === '' && $thumbnail === '') {
-                    $error = 'Attach a thumbnail for this Reel.';
-                }
-                if ($error === '') {
-                    $editing = save_reel([
-                        'title' => $_POST['title'] ?? '',
-                        'url' => $url,
-                        'thumbnail' => $thumbnail,
-                        'status' => $_POST['status'] ?? 'Active',
-                        'sort_order' => $_POST['sort_order'] ?? '',
-                    ], normalize_text($_POST['id'] ?? '', 80) ?: null);
-                    $message = 'Reel saved.';
-                }
+                $editing = save_reel([
+                    'url' => $url,
+                    'status' => $_POST['status'] ?? 'Active',
+                    'sort_order' => $_POST['sort_order'] ?? '',
+                ], normalize_text($_POST['id'] ?? '', 80) ?: null);
+                $message = 'Reel saved. Thumbnail was generated from the reel URL.';
             }
         }
     }
 }
 
 $reels = read_reels(false);
-$mediaFiles = list_media_files();
 $editing = $editing ?: [
     'id' => '',
     'title' => '',
@@ -80,7 +65,7 @@ $editing = $editing ?: [
         <div class="wp-topbar">
             <div>
                 <h1>Instagram Reels</h1>
-                <p>Add Instagram Reel URLs, attach thumbnails, and drag to control website order. Existing YouTube Shorts remain editable.</p>
+                <p>Paste an Instagram Reel URL and add it. The website thumbnail and title are generated automatically from the reel link.</p>
             </div>
             <a href="reels.php" class="wp-button">Add New</a>
         </div>
@@ -91,39 +76,34 @@ $editing = $editing ?: [
         <div class="editor-layout">
             <section class="editor-main">
                 <h2><?= $editing['id'] ? 'Edit Reel' : 'Add Reel' ?></h2>
-                <form method="POST" enctype="multipart/form-data">
+                <form method="POST">
                     <input type="hidden" name="csrf" value="<?= $csrf ?>">
                     <input type="hidden" name="action" value="save">
                     <input type="hidden" name="id" value="<?= e($editing['id']) ?>">
                     <input type="hidden" name="sort_order" value="<?= e((string) $editing['sort_order']) ?>">
-                    <label>Title</label>
-                    <input type="text" name="title" value="<?= e($editing['title']) ?>" placeholder="Patient story, product demo, workshop reel">
-                    <label>Reel URL</label>
+                    <label>Instagram Reel URL</label>
                     <input type="url" name="url" value="<?= e($editing['url']) ?>" placeholder="https://www.instagram.com/reel/... or https://www.youtube.com/shorts/..." required>
-                    <label>Thumbnail Path</label>
-                    <input type="text" name="thumbnail" value="<?= e($editing['thumbnail']) ?>" placeholder="assets/uploads/2026/06/reel.jpg">
-                    <label>Upload Thumbnail</label>
-                    <input type="file" name="thumbnail_upload" accept="image/*">
+                    <p class="field-help">No upload is needed. Instagram thumbnails are pulled from Instagram; YouTube Shorts use the YouTube thumbnail URL.</p>
                     <?php if (!empty($editing['thumbnail'])): ?>
-                        <img class="media-preview" src="<?= e(admin_media_src($editing['thumbnail'])) ?>" alt="">
+                        <div class="auto-reel-preview">
+                            <img class="media-preview" src="<?= e(admin_media_src($editing['thumbnail'])) ?>" alt="">
+                            <div>
+                                <strong><?= e($editing['title'] ?: 'Auto-generated reel') ?></strong>
+                                <span><?= e($editing['thumbnail']) ?></span>
+                            </div>
+                        </div>
                     <?php endif; ?>
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="Active" <?= $editing['status'] === 'Active' ? 'selected' : '' ?>>Active</option>
-                        <option value="Inactive" <?= $editing['status'] === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
-                    </select>
-                    <button class="wp-button primary" type="submit">Save Reel</button>
+                    <?php if ($editing['id']): ?>
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="Active" <?= $editing['status'] === 'Active' ? 'selected' : '' ?>>Active</option>
+                            <option value="Inactive" <?= $editing['status'] === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
+                        </select>
+                    <?php else: ?>
+                        <input type="hidden" name="status" value="Active">
+                    <?php endif; ?>
+                    <button class="wp-button primary" type="submit"><?= $editing['id'] ? 'Update Reel' : 'Add Reel' ?></button>
                 </form>
-                <?php if (!empty($mediaFiles)): ?>
-                    <h2>Pick Thumbnail from Media</h2>
-                    <div class="media-quick-grid wide">
-                        <?php foreach (array_slice($mediaFiles, 0, 12) as $media): ?>
-                            <button type="button" class="media-pick" data-media-path="<?= e($media['path']) ?>">
-                                <img src="../<?= e($media['path']) ?>" alt="<?= e($media['name']) ?>">
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
             </section>
 
             <aside class="editor-side">
@@ -161,13 +141,6 @@ $editing = $editing ?: [
         </div>
     </main>
     <script>
-        document.querySelectorAll('[data-media-path]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const input = document.querySelector('input[name="thumbnail"]');
-                if (input) input.value = button.dataset.mediaPath;
-            });
-        });
-
         const list = document.getElementById('reel-sort-list');
         let dragged = null;
         list?.addEventListener('dragstart', (event) => {

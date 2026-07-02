@@ -1,65 +1,65 @@
 {
-  "reels": [
-    {
-      "id": "REEL-YT-YITJZAJNDFE",
-      "title": "Flexi Feet Short 1",
-      "url": "https://www.youtube.com/shorts/yiTjZajndfE",
-      "thumbnail": "https://i.ytimg.com/vi/yiTjZajndfE/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 1,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    },
-    {
-      "id": "REEL-YT-TUW4R1IARDY",
-      "title": "Flexi Feet Short 2",
-      "url": "https://www.youtube.com/shorts/tuW4r1IArDY",
-      "thumbnail": "https://i.ytimg.com/vi/tuW4r1IArDY/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 2,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    },
-    {
-      "id": "REEL-YT-6Y5UTTF-CI",
-      "title": "Flexi Feet Short 3",
-      "url": "https://www.youtube.com/shorts/6Y_5UTtf_CI",
-      "thumbnail": "https://i.ytimg.com/vi/6Y_5UTtf_CI/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 3,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    },
-    {
-      "id": "REEL-YT-K8ZBQP109VA",
-      "title": "Flexi Feet Short 4",
-      "url": "https://www.youtube.com/shorts/K8ZBQpI09VA",
-      "thumbnail": "https://i.ytimg.com/vi/K8ZBQpI09VA/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 4,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    },
-    {
-      "id": "REEL-YT-CNZ7GHJ59HM",
-      "title": "Flexi Feet Short 5",
-      "url": "https://www.youtube.com/shorts/cnZ7ghJ59hM",
-      "thumbnail": "https://i.ytimg.com/vi/cnZ7ghJ59hM/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 5,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    },
-    {
-      "id": "REEL-YT-CF9BWTC2IMM",
-      "title": "Flexi Feet Short 6",
-      "url": "https://www.youtube.com/shorts/cF9bWTC2ImM",
-      "thumbnail": "https://i.ytimg.com/vi/cF9bWTC2ImM/hqdefault.jpg",
-      "status": "Active",
-      "sort_order": 6,
-      "created_at": "2026-06-29 00:00:00",
-      "updated_at": "2026-06-29 00:00:00"
-    }
-  ],
-  "updated_at": "2026-06-29T00:00:00+05:30"
+    "reels": [
+        {
+            "id": "REEL-YT-YITJZAJNDFE",
+            "title": "Flexi Feet Short 1",
+            "url": "https://www.youtube.com/shorts/yiTjZajndfE",
+            "thumbnail": "https://i.ytimg.com/vi/yiTjZajndfE/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 1,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        },
+        {
+            "id": "REEL-YT-TUW4R1IARDY",
+            "title": "Flexi Feet Short 2",
+            "url": "https://www.youtube.com/shorts/tuW4r1IArDY",
+            "thumbnail": "https://i.ytimg.com/vi/tuW4r1IArDY/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 2,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        },
+        {
+            "id": "REEL-YT-6Y5UTTF-CI",
+            "title": "Flexi Feet Short 3",
+            "url": "https://www.youtube.com/shorts/6Y_5UTtf_CI",
+            "thumbnail": "https://i.ytimg.com/vi/6Y_5UTtf_CI/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 3,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        },
+        {
+            "id": "REEL-YT-K8ZBQP109VA",
+            "title": "Flexi Feet Short 4",
+            "url": "https://www.youtube.com/shorts/K8ZBQpI09VA",
+            "thumbnail": "https://i.ytimg.com/vi/K8ZBQpI09VA/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 4,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        },
+        {
+            "id": "REEL-YT-CNZ7GHJ59HM",
+            "title": "Flexi Feet Short 5",
+            "url": "https://www.youtube.com/shorts/cnZ7ghJ59hM",
+            "thumbnail": "https://i.ytimg.com/vi/cnZ7ghJ59hM/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 5,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        },
+        {
+            "id": "REEL-YT-CF9BWTC2IMM",
+            "title": "Flexi Feet Short 6",
+            "url": "https://www.youtube.com/shorts/cF9bWTC2ImM",
+            "thumbnail": "https://i.ytimg.com/vi/cF9bWTC2ImM/hqdefault.jpg",
+            "status": "Active",
+            "sort_order": 6,
+            "created_at": "2026-06-29 00:00:00",
+            "updated_at": "2026-06-29 00:00:00"
+        }
+    ],
+    "updated_at": "2026-07-02T16:55:18+00:00"
 }

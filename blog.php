@@ -15,6 +15,7 @@ $posts = read_blog_posts(true);
         'assets/images/banner-foot-problems.jpg',
         'blog'
     ); ?>
+    <?php render_agent_discovery_tags(); ?>
     <?php render_json_ld([
         '@context' => 'https://schema.org',
         '@type' => 'Blog',

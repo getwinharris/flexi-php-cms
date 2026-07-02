@@ -21,6 +21,24 @@ if ($action === 'message') {
     exit;
 }
 
+if ($action === 'feedback') {
+    $result = create_support_feedback([
+        'response_id' => $_POST['response_id'] ?? '',
+        'rating' => $_POST['rating'] ?? '',
+        'intent' => $_POST['intent'] ?? '',
+        'language' => $_POST['language'] ?? 'en',
+        'message' => $_POST['message'] ?? '',
+    ]);
+    echo json_encode($result, JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if ($action === 'availability') {
+    $date = normalize_text($_POST['preferred_date'] ?? date('Y-m-d'), 20);
+    echo json_encode(['ok' => true] + appointment_availability_summary($date), JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if ($action === 'booking') {
     $payload = [
         'name' => normalize_text($_POST['name'] ?? '', 100),
@@ -31,12 +49,30 @@ if ($action === 'booking') {
         'visit_type' => normalize_text($_POST['visit_type'] ?? 'Foot Assessment', 100),
         'notes' => normalize_text($_POST['notes'] ?? 'Booked through support bot.', 1000),
     ];
-    if ($payload['name'] === '' || $payload['phone'] === '' || $payload['email'] === '' || $payload['preferred_date'] === '' || $payload['preferred_time'] === '') {
-        echo json_encode(['ok' => false, 'message' => 'Name, phone, email, preferred date and preferred time are required.']);
+    if ($payload['name'] === '' || $payload['phone'] === '' || $payload['email'] === '' || $payload['preferred_date'] === '' || $payload['preferred_time'] === '' || $payload['visit_type'] === '') {
+        echo json_encode(['ok' => false, 'message' => 'Name, phone, email, booking type, preferred date and preferred time are required.']);
         exit;
     }
     if (!filter_var($payload['email'], FILTER_VALIDATE_EMAIL)) {
         echo json_encode(['ok' => false, 'message' => 'Please enter a valid email address.']);
+        exit;
+    }
+    $availability = appointment_availability_summary($payload['preferred_date'], $payload['preferred_time']);
+    if (!$availability['open']) {
+        echo json_encode([
+            'ok' => false,
+            'message' => 'That date is outside our booking hours. Please choose another available slot.',
+            'recommended' => recommended_appointment_slots($payload['preferred_date']),
+        ], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    if (!$availability['preferred_available']) {
+        echo json_encode([
+            'ok' => false,
+            'message' => 'That time is already booked or unavailable. Recommended available times are listed below.',
+            'available_slots' => $availability['available_slots'],
+            'recommended' => recommended_appointment_slots($payload['preferred_date']),
+        ], JSON_UNESCAPED_SLASHES);
         exit;
     }
     $appointment = create_appointment($payload);

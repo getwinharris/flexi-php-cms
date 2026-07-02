@@ -18,6 +18,19 @@ $averageSeo = !empty($posts)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf'] ?? null)) {
         $error = 'Security token expired. Please refresh and try again.';
+    } elseif (($_POST['action'] ?? '') === 'smtp_test') {
+        $sent = send_smtp_mail(
+            BOOKING_OWNER_EMAIL,
+            'Flexi Feet SMTP test',
+            '<div style="font-family:Arial,sans-serif;color:#1d1d1f;line-height:1.5;"><h2 style="color:#1e1b5d;">SMTP test successful</h2><p>This confirms Flexi Feet can send outbound email from the current server settings.</p><p>Sent at ' . e(date('Y-m-d H:i:s')) . '</p></div>'
+        );
+        if ($sent) {
+            $message = 'SMTP test email sent to ' . BOOKING_OWNER_EMAIL . '.';
+        } else {
+            $error = smtp_configured()
+                ? 'SMTP test failed. Check host, port, encryption, username, password, and whether the mailbox allows SMTP login.'
+                : 'SMTP is not fully configured yet.';
+        }
     } else {
         $result = save_mail_settings($_POST);
         if ($result['ok']) {
@@ -112,6 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label>Booking Owner Email</label>
                     <input type="email" name="BOOKING_OWNER_EMAIL" value="<?= e($settings['BOOKING_OWNER_EMAIL']) ?>" required>
+                    <p class="field-help">Kept for records/settings. Appointment owner alerts should come from mailbox forwarding, not a separate website email.</p>
                 </div>
                 <div>
                     <label>Google Analytics Measurement ID</label>
@@ -303,6 +317,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <button class="wp-button primary" type="submit">Save Settings</button>
             <p class="field-help">Settings are saved to <code>includes/config.local.php</code>, which is ignored by Git.</p>
+        </form>
+        <form method="POST" class="wp-panel smtp-test-panel">
+            <input type="hidden" name="csrf" value="<?= $csrf ?>">
+            <input type="hidden" name="action" value="smtp_test">
+            <div>
+                <h2>Outbound Mail Test</h2>
+                <p>Send a real test message from the support mailbox to <?= e(BOOKING_OWNER_EMAIL) ?> using the currently saved SMTP settings.</p>
+            </div>
+            <button class="wp-button" type="submit">Send Test Email</button>
         </form>
     </main>
 </body>

@@ -40,11 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'social_image' => $_POST['social_image'] ?? '',
             'noindex' => $_POST['noindex'] ?? '',
         ], $post['id'] ?? null);
-        $saved = true;
-        $id = $post['id'];
-        $mediaFiles = list_media_files();
+        header('Location: post-edit.php?id=' . rawurlencode($post['id']) . '&saved=1');
+        exit;
     }
 }
+
+$saved = ($_GET['saved'] ?? '') === '1';
 
 $csrf = csrf_token();
 $post = $post ?: [
@@ -95,7 +96,8 @@ $seoScore = seo_score_post($post);
                 <label>Excerpt</label>
                 <textarea name="excerpt" rows="3" placeholder="Short blog summary for the archive page"><?= e($post['excerpt']) ?></textarea>
                 <label>Content</label>
-                <textarea class="content-editor" name="content" rows="18" placeholder="Write the post content here..."><?= e($post['content']) ?></textarea>
+                <textarea class="content-editor" name="content" rows="18" placeholder="# Heading&#10;&#10;Write with **bold**, lists, links, quotes, and images like GitHub README Markdown."><?= e($post['content']) ?></textarea>
+                <p class="field-help">Supports GitHub-style Markdown: headings, bold/italic, links, lists, quotes, inline code, and images. Existing <code>[image:path]</code> blocks still work.</p>
                 <div class="seo-editor-panel">
                     <div class="seo-editor-heading">
                         <div>
@@ -155,14 +157,14 @@ $seoScore = seo_score_post($post);
                     <label>Upload New</label>
                     <input type="file" name="featured_upload" accept="image/*">
                     <?php if (!empty($post['featured_image'])): ?>
-                        <img class="media-preview" src="../<?= e($post['featured_image']) ?>" alt="">
+                        <img class="media-preview" src="<?= e(admin_media_src($post['featured_image'])) ?>" alt="">
                     <?php endif; ?>
                     <p class="field-help">Upload a new image or choose a path from Media Library.</p>
                     <?php if (!empty($mediaFiles)): ?>
                         <div class="media-quick-grid">
                             <?php foreach (array_slice($mediaFiles, 0, 8) as $media): ?>
                                 <button type="button" class="media-pick" data-featured-path="<?= e($media['path']) ?>" title="Set as featured image">
-                                    <img src="../<?= e($media['path']) ?>" alt="<?= e($media['name']) ?>">
+                                    <img src="<?= e(admin_media_src($media['path'])) ?>" alt="<?= e($media['name']) ?>">
                                 </button>
                             <?php endforeach; ?>
                         </div>
@@ -174,7 +176,7 @@ $seoScore = seo_score_post($post);
                         <div class="media-action-list">
                             <?php foreach (array_slice($mediaFiles, 0, 10) as $media): ?>
                                 <button type="button" data-insert-path="<?= e($media['path']) ?>">
-                                    <img src="../<?= e($media['path']) ?>" alt="">
+                                    <img src="<?= e(admin_media_src($media['path'])) ?>" alt="">
                                     <span><?= e($media['name']) ?></span>
                                 </button>
                             <?php endforeach; ?>

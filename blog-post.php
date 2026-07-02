@@ -18,6 +18,7 @@ http_response_code($post ? 200 : 404);
             post_social_image($post),
             'article'
         ); ?>
+        <?php render_agent_discovery_tags(); ?>
         <?php if (post_noindex($post)): ?>
             <meta name="robots" content="noindex,follow">
         <?php endif; ?>
@@ -35,6 +36,7 @@ http_response_code($post ? 200 : 404);
         ]); ?>
     <?php else: ?>
         <?php render_seo_tags('Post Not Found | Flexi Feet', 'This Flexi Feet blog post is unavailable.', 'blog.php'); ?>
+        <?php render_agent_discovery_tags(); ?>
     <?php endif; ?>
     <?php render_google_analytics(); ?>
     <?php render_google_adsense(); ?>

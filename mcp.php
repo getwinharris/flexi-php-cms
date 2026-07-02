@@ -47,8 +47,18 @@ if ($method === 'initialize') {
 if ($method === 'tools/list') {
     mcp_result($id, [
         'tools' => [[
+            'name' => 'get_available_slots',
+            'description' => 'Return available Flexi Feet appointment slots for a date, using existing admin appointment records.',
+            'inputSchema' => [
+                'type' => 'object',
+                'required' => ['preferred_date'],
+                'properties' => [
+                    'preferred_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
+                ],
+            ],
+        ], [
             'name' => 'book_appointment',
-            'description' => 'Create a Flexi Feet appointment request for custom diabetic shoes, custom insoles, foot assessment, or follow-up.',
+            'description' => 'Create a Flexi Feet appointment request for custom footwear, custom insoles, foot assessment, or follow-up after confirming an available slot.',
             'inputSchema' => [
                 'type' => 'object',
                 'required' => ['name', 'phone', 'email', 'preferred_date', 'preferred_time', 'visit_type'],
@@ -69,7 +79,23 @@ if ($method === 'tools/list') {
 if ($method === 'tools/call') {
     $name = $params['name'] ?? '';
     $arguments = $params['arguments'] ?? [];
-    if ($name !== 'book_appointment' || !is_array($arguments)) {
+    if (!is_array($arguments)) {
+        mcp_error($id, -32602, 'Invalid arguments.');
+    }
+    if ($name === 'get_available_slots') {
+        $date = normalize_text($arguments['preferred_date'] ?? '', 20);
+        if ($date === '') {
+            mcp_error($id, -32602, 'preferred_date is required.');
+        }
+        mcp_result($id, [
+            'content' => [[
+                'type' => 'text',
+                'text' => 'Available slots for ' . $date . ': ' . implode(', ', available_appointment_slots($date)),
+            ]],
+            'structuredContent' => appointment_availability_summary($date),
+        ]);
+    }
+    if ($name !== 'book_appointment') {
         mcp_error($id, -32602, 'Unknown tool or invalid arguments.');
     }
     $payload = [
@@ -86,6 +112,13 @@ if ($method === 'tools/call') {
     }
     if (!filter_var($payload['email'], FILTER_VALIDATE_EMAIL)) {
         mcp_error($id, -32602, 'Invalid email address.');
+    }
+    $availability = appointment_availability_summary($payload['preferred_date'], $payload['preferred_time']);
+    if (!$availability['open']) {
+        mcp_error($id, -32602, 'Requested date is outside booking hours. Use get_available_slots for recommendations.');
+    }
+    if (!$availability['preferred_available']) {
+        mcp_error($id, -32602, 'Requested time is already booked or unavailable. Use get_available_slots before booking.');
     }
     $appointment = create_appointment($payload);
     $mail = notify_booking_emails($appointment);
