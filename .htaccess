@@ -1,3 +1,7 @@
 Options -Indexes
 AddDefaultCharset UTF-8
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
+RewriteEngine On
+RewriteRule ^mcp/?$ mcp.php [L]
 

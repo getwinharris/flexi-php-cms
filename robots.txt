@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://flexifeet.net/sitemap.php
+LLMS: https://flexifeet.net/llms.txt
+MCP: https://flexifeet.net/mcp.php

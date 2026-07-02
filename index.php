@@ -3,53 +3,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/functions.php';
 start_app_session();
 $csrf = csrf_token();
-
-$fallback_shorts_ids = ['yiTjZajndfE', 'tuW4r1IArDY', '6Y_5UTtf_CI', 'K8ZBQpI09VA', 'cnZ7ghJ59hM', 'cF9bWTC2ImM'];
-
-function get_youtube_shorts_ids(array $fallbackIds, int $limit = 18): array
-{
-    $cacheFile = STORAGE_DIR . '/youtube-shorts-cache.json';
-    $cacheTtl = 21600;
-
-    if (is_file($cacheFile)) {
-        $cache = json_decode((string) file_get_contents($cacheFile), true);
-        if (
-            is_array($cache)
-            && isset($cache['fetched_at'], $cache['ids'])
-            && time() - (int) $cache['fetched_at'] < $cacheTtl
-            && is_array($cache['ids'])
-        ) {
-            return array_slice(array_values(array_unique(array_merge($cache['ids'], $fallbackIds))), 0, $limit);
-        }
-    }
-
-    $ids = [];
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => 4,
-            'header' => "User-Agent: Mozilla/5.0\r\nAccept-Language: en-US,en;q=0.9\r\n",
-        ],
-    ]);
-    $html = @file_get_contents('https://www.youtube.com/@flexifeetmalaysia/shorts', false, $context);
-
-    if (is_string($html) && preg_match_all('/"videoId":"([a-zA-Z0-9_-]{11})"/', $html, $matches)) {
-        $ids = array_values(array_unique($matches[1]));
-    }
-
-    $ids = array_slice(array_values(array_unique(array_merge($ids, $fallbackIds))), 0, $limit);
-
-    if (!empty($ids)) {
-        storage_bootstrap();
-        @file_put_contents($cacheFile, json_encode([
-            'fetched_at' => time(),
-            'ids' => $ids,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
-    }
-
-    return $ids ?: $fallbackIds;
-}
-
-$shorts_ids = get_youtube_shorts_ids($fallback_shorts_ids);
+$reels = read_reels(true);
+$latest_posts = array_slice(read_blog_posts(true), 0, 8);
 
 $banners = [
     ['url' => 'assets/images/banner-foot-problems.jpg', 'alt' => 'Common Foot Problems'],
@@ -58,15 +13,16 @@ $banners = [
 ];
 
 $problems = [
-    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'assets/images/conditions/diabetic-neuropathy.jpg'],
+    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'assets/images/conditions/diabetic-neuropathy-reference.png'],
     ['Foot Ulcers', 'Open sores caused by pressure or injury.', 'assets/images/conditions/foot-ulcers.jpg'],
     ['Calluses & Corns', 'Thickened skin from friction.', 'assets/images/conditions/calluses-corns.jpg'],
     ['Poor Circulation', 'Reduced blood flow to extremities.', 'assets/images/conditions/poor-circulation.jpg'],
     ['Hammer Toes', 'Toe deformities causing abnormal bending.', 'assets/images/conditions/hammer-toes.jpg'],
     ['Bunions', 'Bony bump at the base of the big toe.', 'assets/images/conditions/bunions.jpg'],
     ['Flat Feet', 'Arches collapse, causing inward roll.', 'assets/images/conditions/flat-feet.jpg'],
-    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot.jpg'],
-    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg']
+    ['Charcot Foot', 'Serious condition weakening bones.', 'assets/images/conditions/charcot-foot-updated.jpg'],
+    ['Heel Pain', 'Inflammation of plantar fascia.', 'assets/images/conditions/heel-pain.jpg'],
+    ['Amputation', 'Custom footwear and insole support after partial foot amputation.', 'assets/images/conditions/amputation.jpg']
 ];
 
 $faqs = [
@@ -91,15 +47,37 @@ $faqs = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flexi Feet | Custom Diabetic & Orthopaedic Footwear Malaysia</title>
     <link rel="icon" type="image/png" href="assets/images/favicon.png">
-    <meta name="description" content="Flexi Feet Sdn Bhd specializes in custom-made diabetic and orthopaedic shoes using 3D Italian foot scanning technology in Sentul, Kuala Lumpur.">
-    
-    <!-- Open Graph / SEO -->
-    <meta property="og:title" content="Flexi Feet | Custom Diabetic & Orthopaedic Footwear">
-    <meta property="og:description" content="Medically approved, handcrafted custom shoes for diabetic neuropathy and orthopaedic comfort.">
-    <meta property="og:image" content="assets/images/flexi-feet-logo.png">
-    <meta property="og:type" content="website">
+    <?php render_seo_tags(
+        'Custom Diabetic Shoes & Orthopaedic Insoles Malaysia | Flexi Feet',
+        'Flexi Feet in Sentul, Kuala Lumpur creates custom diabetic shoes, offload insoles, flat feet insoles and diabetic socks using 3D foot assessment.',
+        '',
+        'assets/images/shoe-web.png'
+    ); ?>
+    <?php render_agent_discovery_tags(); ?>
+    <?php render_json_ld([
+        '@context' => 'https://schema.org',
+        '@type' => 'LocalBusiness',
+        'name' => BUSINESS_NAME,
+        'url' => absolute_url(''),
+        'telephone' => BUSINESS_PHONE,
+        'email' => BUSINESS_EMAIL,
+        'address' => BUSINESS_ADDRESS,
+        'image' => absolute_url('assets/images/flexi-feet-logo.png'),
+        'areaServed' => ['Kuala Lumpur', 'Sentul', 'Malaysia'],
+        'sameAs' => [
+            'https://www.instagram.com/flexifeetmalaysia/',
+            'https://www.facebook.com/flexifeetmalaysia',
+            'https://www.youtube.com/@flexifeetmalaysia'
+        ],
+        'makesOffer' => [
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Custom diabetic shoes']],
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Custom offload insoles']],
+            ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => '3D foot assessment']]
+        ]
+    ]); ?>
+    <?php render_google_analytics(); ?>
+    <?php render_google_adsense(); ?>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <link rel="stylesheet" href="assets/styles.css">
@@ -117,14 +95,15 @@ $faqs = [
                 <li><a href="#products">Products</a></li>
                 <li><a href="#technology">Technology</a></li>
                 <li><a href="#conditions">Conditions</a></li>
+                <li><a href="blog.php">Blog</a></li>
                 <li><a href="#process">Process</a></li>
             </ul>
         </nav>
-        <div class="burger-menu" id="burger-toggle">
+        <button class="burger-menu" id="burger-toggle" type="button" aria-label="Open menu" aria-expanded="false">
             <span></span>
             <span></span>
             <span></span>
-        </div>
+        </button>
         <a href="#booking" class="cta-button">Book a Fitting</a>
     </div>
 </header>
@@ -201,7 +180,7 @@ $faqs = [
         </div>
     </section>
 
-    <!-- Reels Style Shorts Slider -->
+    <?php if (!empty($reels)): ?>
     <section id="shorts" class="shorts-section reveal">
         <div class="container">
             <h2 class="section-title">Flexi Stories</h2>
@@ -209,14 +188,14 @@ $faqs = [
             <div class="reels-container">
                 <div class="swiper shorts-swiper">
                     <div class="swiper-wrapper">
-                        <?php foreach ($shorts_ids as $id): ?>
+                        <?php foreach ($reels as $reel): ?>
                             <div class="swiper-slide">
-                                <button class="shorts-card" type="button" data-video-id="<?= e($id) ?>" aria-label="Play Flexi Feet Short">
-                                    <img src="https://i.ytimg.com/vi/<?= e($id) ?>/hqdefault.jpg" alt="Flexi Feet YouTube Short" loading="lazy">
+                                <a class="shorts-card" href="<?= e($reel['url']) ?>" target="_blank" rel="noopener" aria-label="Open <?= e($reel['title'] ?: 'Flexi Feet Reel') ?>">
+                                    <img src="<?= e($reel['thumbnail']) ?>" alt="<?= e($reel['title'] ?: 'Flexi Feet Instagram Reel') ?>" loading="lazy">
                                     <span class="shorts-play" aria-hidden="true">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                                     </span>
-                                </button>
+                                </a>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -231,38 +210,57 @@ $faqs = [
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
     <section id="products" class="container reveal">
-        <div class="scanning-grid">
-            <div class="scanning-text">
-                <h2 style="font-size: 32px; margin-bottom: 20px;">Custom Diabetic Shoes</h2>
-                <p>Our custom shoes are made to accommodate common diabetic foot issues such as neuropathy, poor circulation, and foot deformities. Choose from a wide range of styles, widths, and features:</p>
-                <ul class="check-list" style="margin-top: 20px;">
-                    <li>Orthotic-Friendly Soles</li>
-                    <li>Extra Depth & Width Options</li>
-                    <li>Seamless Interior to Prevent Irritation</li>
-                    <li>Breathable, Durable Materials</li>
-                </ul>
+        <div class="products-showcase">
+            <div class="products-intro">
+                <h2>Custom Footwear & Orthopaedic Solutions</h2>
+                <p>Our footwear and insole solutions are tailored for everyday comfort, mobility, support, and protection. Choose from a wide range of styles, widths, materials, and custom features designed around your foot shape and lifestyle.</p>
             </div>
-            <div class="product-styles-panel">
-                <h4>Styles Available</h4>
-                <div class="product-styles-grid">
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
-                        <p>Diabetic custom-made offload shoes</p>
+            <div class="product-carousel-wrap">
+                <div class="swiper product-styles-swiper">
+                    <div class="swiper-wrapper">
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/therapeutic-comfort-shoes.png" alt="Therapeutic comfort shoes" loading="lazy">
+                    <p>Therapeutic Comfort Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/pink-knit-comfort-shoe.png" alt="Knit comfort shoes" loading="lazy">
+                    <p>Knit Comfort Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/navy-knit-walking-shoe.png" alt="Walking shoes" loading="lazy">
+                    <p>Walking Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/custom-orthotic-insoles.png" alt="Custom orthotic insoles" loading="lazy">
+                    <p>Custom Orthotic Insoles</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/adjustable-medical-sandal.png" alt="Adjustable medical sandals" loading="lazy">
+                    <p>Adjustable Medical Sandals</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/orthotic-in-shoe.png" alt="In-shoe orthotic fitting" loading="lazy">
+                    <p>In-Shoe Orthotic Fitting</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/supportive-comfort-sandals.png" alt="Supportive comfort sandals" loading="lazy">
+                    <p>Supportive Comfort Sandals</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/diabetic-compression-socks.png" alt="Diabetic compression socks" loading="lazy">
+                    <p>Diabetic & Compression Socks</p>
+                </div>
                     </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
-                        <p>custom made offload Insole</p>
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
-                        <p>custom made flat feet insole</p>
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
-                        <p>Diabetic socks</p>
-                    </div>
+                    <button class="product-nav product-nav-prev" type="button" aria-label="Previous product">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button class="product-nav product-nav-next" type="button" aria-label="Next product">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    <div class="swiper-pagination product-pagination"></div>
                 </div>
             </div>
         </div>
@@ -271,7 +269,7 @@ $faqs = [
     <section id="technology" class="scanning-section reveal">
         <div class="container scanning-grid">
             <div class="hero-visual">
-                <img src="assets/images/foot-scanning-technology.png" alt="Advanced 3D foot scanning pressure map" class="scanning-image" loading="lazy">
+                <img src="assets/images/foot-scanning-monitor.png" alt="Advanced foot scanning pressure analysis workstation" class="scanning-image" loading="lazy">
             </div>
             <div class="scanning-text">
                 <h2 style="font-size: 32px; margin-bottom: 20px;">Advanced Foot Scanning Technology</h2>
@@ -295,7 +293,7 @@ $faqs = [
             <?php foreach ($problems as $index => $problem): ?>
                 <div class="problem-card">
                     <img src="<?= $problem[2] ?>" alt="<?= e($problem[0]) ?>" loading="lazy">
-                    <h3><?= ($index + 1) . '. ' . e($problem[0]) ?></h3>
+                    <h3><?= e($problem[0]) ?></h3>
                     <p><?= e($problem[1]) ?></p>
                 </div>
             <?php endforeach; ?>
@@ -391,7 +389,7 @@ $faqs = [
                     </div>
                     <div class="form-group">
                         <label>Email Address</label>
-                        <input type="email" name="email" placeholder="john@example.com">
+                        <input type="email" name="email" required placeholder="john@example.com">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div class="form-group">
@@ -422,6 +420,101 @@ $faqs = [
                     <button type="submit" class="submit-btn">Request Appointment</button>
                     <p id="form-message" style="margin-top: 15px; font-size: 14px; text-align: center;"></p>
                 </form>
+            </div>
+        </div>
+    </section>
+
+    <?php if (!empty($latest_posts)): ?>
+    <section id="blog-preview" class="container reveal blog-preview-section">
+        <div class="section-heading-row">
+            <div>
+                <h2 class="section-title">Latest Foot Care Guides</h2>
+                <p class="section-subtitle">SEO-focused guides for diabetic shoes, custom insoles, flat feet support, and safer daily walking.</p>
+            </div>
+            <a href="blog.php" class="read-more">View All Articles</a>
+        </div>
+        <div class="swiper blog-preview-swiper">
+            <div class="swiper-wrapper">
+                <?php foreach ($latest_posts as $post): ?>
+                    <article class="swiper-slide blog-card">
+                        <?php if (!empty($post['featured_image'])): ?>
+                            <img src="<?= e($post['featured_image']) ?>" alt="<?= e($post['title']) ?>" loading="lazy">
+                        <?php endif; ?>
+                        <div class="blog-card-body">
+                            <span class="blog-date"><?= e(date('M j, Y', strtotime($post['published_at'] ?: $post['created_at']))) ?></span>
+                            <h2><a href="blog-post.php?slug=<?= e($post['slug']) ?>"><?= e($post['title']) ?></a></h2>
+                            <p><?= e($post['excerpt']) ?></p>
+                            <a class="read-more" href="blog-post.php?slug=<?= e($post['slug']) ?>">Read More</a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <div class="swiper-pagination blog-preview-pagination"></div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <section id="faq" class="container reveal faq-section">
+        <h2 class="section-title">Q & A</h2>
+        <p class="section-subtitle">Find quick answers about appointments, visits, payment, and custom footwear care.</p>
+        <div class="faq-shell" data-faq>
+            <div class="faq-tools">
+                <label class="faq-search" for="faq-search">
+                    <span aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
+                    <input id="faq-search" type="search" placeholder="Search questions" autocomplete="off" data-faq-search>
+                </label>
+                <div class="faq-actions">
+                    <button type="button" class="faq-tool-btn" data-faq-expand>Expand all</button>
+                    <button type="button" class="faq-tool-btn" data-faq-collapse>Collapse all</button>
+                </div>
+            </div>
+            <div class="faq-filters" aria-label="FAQ filters">
+                <button type="button" class="faq-filter active" data-faq-filter="all">All</button>
+                <button type="button" class="faq-filter" data-faq-filter="appointment">Appointments</button>
+                <button type="button" class="faq-filter" data-faq-filter="product">Products</button>
+                <button type="button" class="faq-filter" data-faq-filter="payment">Payment</button>
+                <button type="button" class="faq-filter" data-faq-filter="visit">Visits</button>
+            </div>
+            <div class="faq-grid">
+                <?php foreach ($faqs as $index => $faq): ?>
+                    <?php
+                        $faqText = strtolower($faq[0] . ' ' . $faq[1]);
+                        $category = 'product';
+                        if (strpos($faqText, 'parking') !== false || strpos($faqText, 'ground floor') !== false || strpos($faqText, 'home visit') !== false || strpos($faqText, 'malaysia') !== false || strpos($faqText, 'travel') !== false) {
+                            $category = 'visit';
+                        } elseif (strpos($faqText, 'appointment') !== false || strpos($faqText, 'consultation') !== false || strpos($faqText, 'sunday') !== false) {
+                            $category = 'appointment';
+                        } elseif (strpos($faqText, 'payment') !== false || strpos($faqText, 'deposit') !== false || strpos($faqText, 'card') !== false || strpos($faqText, 'transfer') !== false) {
+                            $category = 'payment';
+                        }
+                    ?>
+                    <article class="faq-item<?= $index === 0 ? ' active' : '' ?>" data-faq-item data-category="<?= e($category) ?>">
+                        <h3>
+                            <button
+                                type="button"
+                                class="faq-question"
+                                id="faq-question-<?= $index ?>"
+                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>"
+                                aria-controls="faq-answer-<?= $index ?>"
+                            >
+                                <span><?= e($faq[0]) ?></span>
+                                <span class="faq-toggle" aria-hidden="true"></span>
+                            </button>
+                        </h3>
+                        <div
+                            class="faq-answer"
+                            id="faq-answer-<?= $index ?>"
+                            role="region"
+                            aria-labelledby="faq-question-<?= $index ?>"
+                            <?= $index === 0 ? '' : 'hidden' ?>
+                        >
+                            <p><?= e($faq[1]) ?></p>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+                <p class="faq-empty" data-faq-empty hidden>No matching questions yet. Try another keyword or category.</p>
             </div>
         </div>
     </section>
@@ -485,6 +578,61 @@ $faqs = [
 <div class="scroll-top" id="scroll-top">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
 </div>
+
+<section class="support-bot" data-support-bot aria-label="Flexi Feet support bot">
+    <button class="support-bot-toggle" type="button" data-support-toggle aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3.25c-4.7 0-8.5 3.12-8.5 6.98 0 2.18 1.25 4.16 3.21 5.45l-.54 3.07 3.23-1.66c.82.18 1.7.27 2.6.27 4.7 0 8.5-3.13 8.5-6.99S16.7 3.25 12 3.25Z"/>
+            <path d="M9.05 10.36h.01M12 10.36h.01M14.95 10.36h.01"/>
+            <path d="M8.7 13.4c1.86 1.12 4.74 1.12 6.6 0"/>
+            <path d="M18.8 4.7l.55-1.45.55 1.45 1.45.55-1.45.55-.55 1.45-.55-1.45-1.45-.55 1.45-.55Z"/>
+        </svg>
+        <span>Support</span>
+    </button>
+    <div class="support-bot-panel" data-support-panel hidden>
+        <div class="support-bot-header">
+            <div>
+                <strong>Flexi Feet Support Agent</strong>
+                <span>Grounded in Flexi Feet services, blogs, bookings, and issue tickets.</span>
+            </div>
+            <button type="button" data-support-toggle aria-label="Close support">×</button>
+        </div>
+        <div class="support-bot-messages" data-support-messages>
+            <div class="bot-message">Ask about services, request an appointment, or report a website/service issue. For bookings, I will ask what the fitting is for, your name, contact details, and suggest available times from current appointments.</div>
+        </div>
+        <div class="support-bot-actions">
+            <button type="button" data-support-mode="booking">Book Fitting</button>
+            <button type="button" data-support-mode="ticket">Create Ticket</button>
+        </div>
+        <form class="support-detail-form" data-support-detail hidden>
+            <strong data-support-detail-title>Details</strong>
+            <input type="hidden" name="action" value="">
+            <input type="text" name="name" placeholder="Name">
+            <input type="email" name="email" placeholder="Email">
+            <input type="tel" name="phone" placeholder="Phone">
+            <input type="date" name="preferred_date" data-booking-field>
+            <select name="preferred_time" data-booking-field>
+                <option value="">Choose an available time</option>
+            </select>
+            <select name="visit_type" data-booking-field>
+                <option value="">Booking for what?</option>
+                <option>Foot Assessment</option>
+                <option>Custom Shoes / Footwear Fitting</option>
+                <option>Customised Insole Assessment</option>
+                <option>Pressure Sensor Scan</option>
+                <option>Follow-up</option>
+            </select>
+            <div class="support-availability" data-availability-status hidden></div>
+            <input type="text" name="subject" placeholder="Issue subject" data-ticket-field>
+            <textarea name="message" rows="3" placeholder="Message"></textarea>
+            <button type="submit">Submit</button>
+        </form>
+        <form class="support-bot-form" data-support-form>
+            <textarea name="message" rows="2" placeholder="Ask about services, blogs, booking, or report an issue" required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+</section>
 
 <a class="whatsapp-chat" href="https://wa.me/60166055477?text=inquiry%20from%20flexifeet.new%20web%20portal" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
     <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16.04 3C8.87 3 3.04 8.8 3.04 15.92c0 2.28.6 4.51 1.74 6.47L3 29l6.79-1.76a13.05 13.05 0 0 0 6.25 1.59c7.17 0 13-5.8 13-12.92S23.21 3 16.04 3zm0 23.64c-1.93 0-3.82-.52-5.48-1.5l-.39-.23-4.03 1.04 1.08-3.91-.25-.4a10.61 10.61 0 0 1-1.63-5.72c0-5.91 4.8-10.73 10.7-10.73s10.7 4.82 10.7 10.73-4.8 10.72-10.7 10.72zm5.87-8.03c-.32-.16-1.9-.94-2.2-1.05-.3-.1-.51-.16-.73.16-.21.32-.84 1.05-1.03 1.27-.19.21-.38.24-.7.08-.32-.16-1.36-.5-2.59-1.6a9.7 9.7 0 0 1-1.79-2.22c-.19-.32-.02-.5.14-.66.15-.15.32-.38.49-.57.16-.19.21-.32.32-.54.1-.21.05-.4-.03-.56-.08-.16-.73-1.75-1-2.4-.26-.63-.53-.54-.73-.55h-.62c-.21 0-.56.08-.86.4-.3.32-1.13 1.1-1.13 2.67s1.16 3.1 1.32 3.31c.16.21 2.29 3.48 5.54 4.88.77.33 1.38.53 1.85.68.78.25 1.48.21 2.04.13.62-.09 1.9-.78 2.17-1.53.27-.75.27-1.4.19-1.53-.08-.13-.29-.21-.61-.37z"/></svg>
