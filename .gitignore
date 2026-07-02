@@ -5,6 +5,9 @@ storage/appointments.json
 storage/blog-posts.json
 storage/instagram-reels.json
 storage/support-tickets.json
+storage/*.csv
+storage/*.json
+storage/*.jsonl
 includes/config.local.php
 assets/uploads/*
 !assets/uploads/.gitkeep

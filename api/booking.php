@@ -24,8 +24,23 @@ $payload = [
     'notes' => normalize_text($_POST['notes'] ?? '', 1000),
 ];
 
-if (empty($payload['name']) || empty($payload['phone']) || empty($payload['preferred_date'])) {
+if (empty($payload['name']) || empty($payload['phone']) || empty($payload['email']) || empty($payload['preferred_date']) || empty($payload['preferred_time']) || empty($payload['visit_type'])) {
     echo json_encode(['ok' => false, 'message' => 'Please fill in all required fields.']);
+    exit;
+}
+
+$availability = appointment_availability_summary($payload['preferred_date'], $payload['preferred_time']);
+if (!$availability['open']) {
+    echo json_encode(['ok' => false, 'message' => 'That date is outside our booking hours. Please choose another available date.']);
+    exit;
+}
+if (!$availability['preferred_available']) {
+    echo json_encode([
+        'ok' => false,
+        'message' => 'That time is already booked or unavailable. Please choose another slot.',
+        'available_slots' => $availability['available_slots'],
+        'recommended' => recommended_appointment_slots($payload['preferred_date']),
+    ], JSON_UNESCAPED_SLASHES);
     exit;
 }
 

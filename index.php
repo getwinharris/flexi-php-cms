@@ -13,7 +13,7 @@ $banners = [
 ];
 
 $problems = [
-    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'assets/images/conditions/diabetic-neuropathy.jpg'],
+    ['Diabetic Neuropathy', 'Nerve damage from high blood sugar leading to tingling, numbness, or burning.', 'assets/images/conditions/diabetic-neuropathy-reference.png'],
     ['Foot Ulcers', 'Open sores caused by pressure or injury.', 'assets/images/conditions/foot-ulcers.jpg'],
     ['Calluses & Corns', 'Thickened skin from friction.', 'assets/images/conditions/calluses-corns.jpg'],
     ['Poor Circulation', 'Reduced blood flow to extremities.', 'assets/images/conditions/poor-circulation.jpg'],
@@ -54,6 +54,7 @@ $faqs = [
         '',
         'assets/images/shoe-web.png'
     ); ?>
+    <?php render_agent_discovery_tags(); ?>
     <?php render_json_ld([
         '@context' => 'https://schema.org',
         '@type' => 'LocalBusiness',
@@ -98,11 +99,11 @@ $faqs = [
                 <li><a href="#process">Process</a></li>
             </ul>
         </nav>
-        <div class="burger-menu" id="burger-toggle">
+        <button class="burger-menu" id="burger-toggle" type="button" aria-label="Open menu" aria-expanded="false">
             <span></span>
             <span></span>
             <span></span>
-        </div>
+        </button>
         <a href="#booking" class="cta-button">Book a Fitting</a>
     </div>
 </header>
@@ -212,32 +213,54 @@ $faqs = [
     <?php endif; ?>
 
     <section id="products" class="container reveal">
-        <div class="scanning-grid">
-            <div class="scanning-text">
-                <h2 style="font-size: 32px; margin-bottom: 20px;">Custom Diabetic Shoes</h2>
-                <p>Our custom shoes are made to accommodate common diabetic foot issues such as neuropathy, poor circulation, and foot deformities. Choose from a wide range of styles, widths, and features:</p>
-                <ul class="check-list" style="margin-top: 20px;">
-                    <li>Diabetic custom-made offload shoes</li>
-                    <li>custom made offload Insole</li>
-                    <li>custom made flat feet insole</li>
-                    <li>Diabetic socks</li>
-                </ul>
+        <div class="products-showcase">
+            <div class="products-intro">
+                <h2>Custom Footwear & Orthopaedic Solutions</h2>
+                <p>Our footwear and insole solutions are tailored for everyday comfort, mobility, support, and protection. Choose from a wide range of styles, widths, materials, and custom features designed around your foot shape and lifestyle.</p>
             </div>
-            <div class="product-styles-panel">
-                <h4>Styles Available</h4>
-                <div class="product-styles-grid">
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=500" alt="Walking Shoes" loading="lazy">
+            <div class="product-carousel-wrap">
+                <div class="swiper product-styles-swiper">
+                    <div class="swiper-wrapper">
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/therapeutic-comfort-shoes.png" alt="Therapeutic comfort shoes" loading="lazy">
+                    <p>Therapeutic Comfort Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/pink-knit-comfort-shoe.png" alt="Knit comfort shoes" loading="lazy">
+                    <p>Knit Comfort Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/navy-knit-walking-shoe.png" alt="Walking shoes" loading="lazy">
+                    <p>Walking Shoes</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/custom-orthotic-insoles.png" alt="Custom orthotic insoles" loading="lazy">
+                    <p>Custom Orthotic Insoles</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/adjustable-medical-sandal.png" alt="Adjustable medical sandals" loading="lazy">
+                    <p>Adjustable Medical Sandals</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/orthotic-in-shoe.png" alt="In-shoe orthotic fitting" loading="lazy">
+                    <p>In-Shoe Orthotic Fitting</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/supportive-comfort-sandals.png" alt="Supportive comfort sandals" loading="lazy">
+                    <p>Supportive Comfort Sandals</p>
+                </div>
+                <div class="swiper-slide product-style-card hover-lift">
+                    <img src="assets/images/products/diabetic-compression-socks.png" alt="Diabetic compression socks" loading="lazy">
+                    <p>Diabetic & Compression Socks</p>
+                </div>
                     </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&q=80&w=500" alt="Dress Shoes" loading="lazy">
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&q=80&w=500" alt="Sandals" loading="lazy">
-                    </div>
-                    <div class="product-style-card hover-lift">
-                        <img src="https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=500" alt="Boots" loading="lazy">
-                    </div>
+                    <button class="product-nav product-nav-prev" type="button" aria-label="Previous product">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button class="product-nav product-nav-next" type="button" aria-label="Next product">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    <div class="swiper-pagination product-pagination"></div>
                 </div>
             </div>
         </div>
@@ -246,7 +269,7 @@ $faqs = [
     <section id="technology" class="scanning-section reveal">
         <div class="container scanning-grid">
             <div class="hero-visual">
-                <img src="assets/images/foot-scanning-technology.png" alt="Advanced 3D foot scanning pressure map" class="scanning-image" loading="lazy">
+                <img src="assets/images/foot-scanning-monitor.png" alt="Advanced foot scanning pressure analysis workstation" class="scanning-image" loading="lazy">
             </div>
             <div class="scanning-text">
                 <h2 style="font-size: 32px; margin-bottom: 20px;">Advanced Foot Scanning Technology</h2>
@@ -563,7 +586,7 @@ $faqs = [
             <button type="button" data-support-toggle aria-label="Close support">×</button>
         </div>
         <div class="support-bot-messages" data-support-messages>
-            <div class="bot-message">Ask about custom diabetic shoes, offload insoles, foot scanning, diabetic socks, appointment booking, or report a website/service issue.</div>
+            <div class="bot-message">Ask about services, request an appointment, or report a website/service issue. For bookings, I will ask what the fitting is for, your name, contact details, and suggest available times from current appointments.</div>
         </div>
         <div class="support-bot-actions">
             <button type="button" data-support-mode="booking">Book Fitting</button>
@@ -576,14 +599,18 @@ $faqs = [
             <input type="email" name="email" placeholder="Email">
             <input type="tel" name="phone" placeholder="Phone">
             <input type="date" name="preferred_date" data-booking-field>
-            <input type="time" name="preferred_time" data-booking-field>
+            <select name="preferred_time" data-booking-field>
+                <option value="">Choose an available time</option>
+            </select>
             <select name="visit_type" data-booking-field>
+                <option value="">Booking for what?</option>
                 <option>Foot Assessment</option>
                 <option>Custom Shoes / Footwear Fitting</option>
                 <option>Customised Insole Assessment</option>
                 <option>Pressure Sensor Scan</option>
                 <option>Follow-up</option>
             </select>
+            <div class="support-availability" data-availability-status hidden></div>
             <input type="text" name="subject" placeholder="Issue subject" data-ticket-field>
             <textarea name="message" rows="3" placeholder="Message"></textarea>
             <button type="submit">Submit</button>

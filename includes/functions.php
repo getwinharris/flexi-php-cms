@@ -76,6 +76,20 @@ function storage_bootstrap(): void
             'updated_at' => gmdate(DATE_ATOM),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
+
+    if (!file_exists(SUPPORT_FEEDBACK_FILE)) {
+        file_put_contents(SUPPORT_FEEDBACK_FILE, json_encode([
+            'feedback' => [],
+            'updated_at' => gmdate(DATE_ATOM),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    if (!file_exists(SUPPORT_TTT_MEMORY_FILE)) {
+        file_put_contents(SUPPORT_TTT_MEMORY_FILE, json_encode([
+            'documents' => [],
+            'updated_at' => gmdate(DATE_ATOM),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
 }
 
 function normalize_text(?string $value, int $maxLength = 300): string
@@ -100,6 +114,105 @@ function save_appointments(array $appointments): void
         'updated_at' => gmdate(DATE_ATOM),
     ];
     file_put_contents(APPOINTMENTS_FILE, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+function appointment_hours_for_date(string $date): array
+{
+    $timestamp = strtotime($date);
+    if ($timestamp === false) {
+        return [];
+    }
+    $day = (int) date('w', $timestamp);
+    if ($day === 0) {
+        return [];
+    }
+    return $day === 6 ? ['09:00', '13:00'] : ['09:00', '18:00'];
+}
+
+function appointment_time_slots(string $date): array
+{
+    $hours = appointment_hours_for_date($date);
+    if (empty($hours)) {
+        return [];
+    }
+    [$start, $end] = $hours;
+    $slots = [];
+    $cursor = strtotime($date . ' ' . $start);
+    $limit = strtotime($date . ' ' . $end);
+    while ($cursor !== false && $limit !== false && $cursor <= $limit) {
+        $slots[] = date('H:i', $cursor);
+        $cursor = strtotime('+30 minutes', $cursor);
+    }
+    return $slots;
+}
+
+function booked_appointment_times(string $date): array
+{
+    $booked = [];
+    foreach (read_appointments() as $appointment) {
+        $status = $appointment['status'] ?? 'New';
+        if ($status === 'Cancelled' || ($appointment['preferred_date'] ?? '') !== $date) {
+            continue;
+        }
+        $time = substr((string) ($appointment['preferred_time'] ?? ''), 0, 5);
+        if ($time !== '') {
+            $booked[] = $time;
+        }
+    }
+    return array_values(array_unique($booked));
+}
+
+function available_appointment_slots(string $date): array
+{
+    $booked = booked_appointment_times($date);
+    return array_values(array_filter(appointment_time_slots($date), function ($slot) use ($booked, $date) {
+        if (in_array($slot, $booked, true)) {
+            return false;
+        }
+        if ($date === date('Y-m-d') && $slot <= date('H:i')) {
+            return false;
+        }
+        return true;
+    }));
+}
+
+function recommended_appointment_slots(?string $date = null, int $limit = 5): array
+{
+    $date = normalize_text($date ?? '', 20);
+    $start = $date !== '' ? strtotime($date) : time();
+    if ($start === false) {
+        $start = time();
+    }
+    $results = [];
+    for ($offset = 0; $offset < 21 && count($results) < $limit; $offset++) {
+        $candidateDate = date('Y-m-d', strtotime('+' . $offset . ' day', $start));
+        foreach (available_appointment_slots($candidateDate) as $slot) {
+            if ($candidateDate === date('Y-m-d') && $slot <= date('H:i')) {
+                continue;
+            }
+            $results[] = ['date' => $candidateDate, 'time' => $slot];
+            if (count($results) >= $limit) {
+                break;
+            }
+        }
+    }
+    return $results;
+}
+
+function appointment_availability_summary(string $date, string $preferredTime = ''): array
+{
+    $date = normalize_text($date, 20);
+    $preferredTime = substr(normalize_text($preferredTime, 20), 0, 5);
+    $available = available_appointment_slots($date);
+    $isOpen = !empty(appointment_hours_for_date($date));
+    return [
+        'date' => $date,
+        'open' => $isOpen,
+        'available_slots' => $available,
+        'booked_slots' => booked_appointment_times($date),
+        'preferred_available' => $preferredTime !== '' && in_array($preferredTime, $available, true),
+        'recommended' => array_slice($available, 0, 5),
+    ];
 }
 
 function read_json_file(string $file, string $key): array
@@ -176,6 +289,62 @@ function create_support_ticket(array $payload): array
     return $ticket;
 }
 
+function read_support_feedback(): array
+{
+    return read_json_file(SUPPORT_FEEDBACK_FILE, 'feedback');
+}
+
+function save_support_feedback(array $feedback): void
+{
+    save_json_file(SUPPORT_FEEDBACK_FILE, 'feedback', array_slice($feedback, -500));
+}
+
+function read_support_ttt_documents(): array
+{
+    return array_values(array_filter(read_json_file(SUPPORT_TTT_MEMORY_FILE, 'documents'), function ($document) {
+        $text = (string) ($document['text'] ?? '');
+        if ($text === '') {
+            return false;
+        }
+        if (preg_match('/Who registered the most sacks|answer_start:|Metadata:|Customer instruction pattern: I cannot use the website form/i', $text)) {
+            return false;
+        }
+        return true;
+    }));
+}
+
+function save_support_ttt_documents(array $documents): void
+{
+    save_json_file(SUPPORT_TTT_MEMORY_FILE, 'documents', array_slice($documents, -160));
+}
+
+function create_support_feedback(array $payload): array
+{
+    $rating = normalize_text($payload['rating'] ?? '', 24);
+    if (!in_array($rating, ['like', 'dislike'], true)) {
+        return ['ok' => false, 'message' => 'Choose like or dislike.'];
+    }
+
+    $feedback = read_support_feedback();
+    $entry = [
+        'id' => 'FB-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
+        'response_id' => normalize_text($payload['response_id'] ?? '', 80),
+        'rating' => $rating,
+        'intent' => normalize_text($payload['intent'] ?? '', 40),
+        'language' => normalize_text($payload['language'] ?? 'en', 12),
+        'query_terms' => array_slice(flexifeet_support_tokenize((string) ($payload['message'] ?? '')), 0, 18),
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+    $feedback[] = $entry;
+    save_support_feedback($feedback);
+
+    if ($rating === 'like') {
+        flexifeet_support_store_feedback_memory($entry);
+    }
+
+    return ['ok' => true, 'message' => $rating === 'like' ? 'Thanks, I will keep using this style.' : 'Thanks, I will use that signal to improve future answers.'];
+}
+
 function update_support_ticket_status(string $id, string $status): bool
 {
     $allowed = ['Open', 'In Progress', 'Closed'];
@@ -198,6 +367,7 @@ function support_service_suggestions(string $message): array
     $message = strtolower($message);
     $posts = read_blog_posts(true);
     $matches = [];
+    $seen = [];
     $topics = [
         'diabetic' => ['diabetic', 'neuropathy', 'ulcer', 'sugar', 'diabetes'],
         'insole' => ['insole', 'offload', 'orthotic', 'pressure'],
@@ -214,7 +384,11 @@ function support_service_suggestions(string $message): array
                 foreach ($posts as $post) {
                     $haystack = strtolower(($post['title'] ?? '') . ' ' . ($post['excerpt'] ?? '') . ' ' . ($post['slug'] ?? ''));
                     if (strpos($haystack, $topic) !== false || strpos($haystack, $needle) !== false) {
-                        $matches[] = ['title' => $post['title'], 'url' => 'blog-post.php?slug=' . $post['slug']];
+                        $url = 'blog-post.php?slug=' . $post['slug'];
+                        if (!isset($seen[$url])) {
+                            $matches[] = ['title' => $post['title'], 'url' => $url];
+                            $seen[$url] = true;
+                        }
                         break 2;
                     }
                 }
@@ -224,39 +398,1216 @@ function support_service_suggestions(string $message): array
     return array_slice($matches, 0, 3);
 }
 
-function support_bot_reply(string $message): array
+function flexifeet_support_snippet(string $text, int $maxLength = 260): string
 {
-    $text = strtolower($message);
+    $text = trim(preg_replace('/\s+/', ' ', strip_tags($text)) ?? '');
+    if (mb_strlen($text) <= $maxLength) {
+        return $text;
+    }
+    $snippet = mb_substr($text, 0, $maxLength);
+    $snippet = preg_replace('/\s+\S*$/', '', $snippet) ?? $snippet;
+    return rtrim($snippet, ' .,;:') . '.';
+}
+
+function flexifeet_support_tokenize(string $text): array
+{
+    $text = mb_strtolower(strip_tags($text), 'UTF-8');
+    preg_match_all('/[\p{L}\p{N}]{2,}/u', $text, $matches);
+    $stopWords = array_flip([
+        'the', 'and', 'for', 'with', 'that', 'this', 'you', 'your', 'are', 'can', 'our', 'from',
+        'will', 'have', 'has', 'about', 'what', 'when', 'where', 'how', 'why', 'into', 'using',
+        'use', 'not', 'all', 'any', 'please', 'need', 'want', 'does', 'flexi', 'feet',
+        'dan', 'yang', 'untuk', 'saya', 'anda', 'boleh', 'dengan', 'apa', 'bagaimana',
+    ]);
+    $tokens = [];
+    foreach ($matches[0] ?? [] as $token) {
+        if (!isset($stopWords[$token])) {
+            $tokens[] = $token;
+        }
+    }
+    return $tokens;
+}
+
+function flexifeet_support_project_text(string $file): string
+{
+    $path = __DIR__ . '/../' . ltrim($file, '/');
+    if (!is_file($path)) {
+        return '';
+    }
+    $text = (string) file_get_contents($path);
+    $text = preg_replace('/<script\b[^>]*>.*?<\/script>/is', ' ', $text) ?? $text;
+    $text = preg_replace('/<style\b[^>]*>.*?<\/style>/is', ' ', $text) ?? $text;
+    $text = preg_replace('/<\?php|\?>|=>|\\$[A-Za-z0-9_]+/', ' ', $text) ?? $text;
+    $text = str_replace(['[', ']', '=>', '::'], ' ', $text);
+    return trim(preg_replace('/\s+/', ' ', strip_tags($text)) ?? '');
+}
+
+function flexifeet_support_raw_block_files(): array
+{
+    $files = [
+        'index.md',
+        'AGENTS.md',
+        'llms.txt',
+        'README.md',
+        'includes/config.php',
+        'includes/functions.php',
+        'api/support-bot.php',
+        'api/booking.php',
+        'mcp.php',
+        'index.php',
+        'blog.php',
+        'blog-post.php',
+        'admin/settings.php',
+        'admin/reels.php',
+        'admin/post-edit.php',
+        'admin/media.php',
+        'admin/tickets.php',
+        'assets/app.js',
+        'assets/styles.css',
+        'tests/run.php',
+        'storage/blog-posts.json',
+    ];
+
+    foreach (glob(__DIR__ . '/../model/*.md') ?: [] as $path) {
+        $files[] = 'model/' . basename($path);
+    }
+
+    return array_values(array_unique(array_filter($files, function ($file) {
+        $path = realpath(__DIR__ . '/../' . $file);
+        $root = realpath(__DIR__ . '/..');
+        return $path !== false && $root !== false && strpos($path, $root) === 0 && is_file($path);
+    })));
+}
+
+function flexifeet_support_byte_block_documents(): array
+{
+    $documents = [];
+    $blockSize = max(512, min(8192, SUPPORT_BLOCK_BYTES));
+    $limit = max(12, min(240, SUPPORT_BLOCK_LIMIT));
+
+    foreach (flexifeet_support_raw_block_files() as $file) {
+        $path = __DIR__ . '/../' . $file;
+        $raw = (string) file_get_contents($path);
+        $byteLength = strlen($raw);
+        if ($byteLength === 0) {
+            continue;
+        }
+        for ($offset = 0, $blockIndex = 0; $offset < $byteLength && count($documents) < $limit; $offset += $blockSize, $blockIndex++) {
+            $chunk = substr($raw, $offset, $blockSize);
+            $text = trim(preg_replace('/\s+/', ' ', strip_tags($chunk)) ?? '');
+            if ($text === '' || mb_strlen($text) < 40) {
+                continue;
+            }
+            $hash = substr(hash('sha256', $file . '|' . $offset . '|' . $chunk), 0, 16);
+            $documents[] = [
+                'id' => 'byte-block-' . slugify($file . '-' . $blockIndex . '-' . $hash),
+                'title' => 'Raw byte block: ' . $file . ' #' . $blockIndex,
+                'url' => $file,
+                'dataset' => 'Raw repository byte block',
+                'modality' => 'bytes:text',
+                'source_file' => $file,
+                'byte_start' => $offset,
+                'byte_end' => min($byteLength, $offset + strlen($chunk)),
+                'byte_length' => strlen($chunk),
+                'byte_hash' => $hash,
+                'text' => 'Raw file byte block from ' . $file . ' bytes ' . $offset . '-' . min($byteLength, $offset + strlen($chunk)) . '. Content: ' . normalize_text($text, 1800),
+            ];
+        }
+        if (count($documents) >= $limit) {
+            break;
+        }
+    }
+
+    return $documents;
+}
+
+function flexifeet_support_training_documents(): array
+{
+    $documents = [
+        [
+            'id' => 'business',
+            'title' => BUSINESS_NAME . ' contact and location',
+            'url' => './#location',
+            'text' => BUSINESS_NAME . ' provides custom footwear, orthopaedic insoles, offload insoles, flat feet insoles, diabetic socks, compression socks, 3D foot scanning, pressure assessment, fittings, follow-ups, and appointment-based service in Sentul, Kuala Lumpur, Malaysia. Phone ' . BUSINESS_PHONE . '. Email ' . BUSINESS_EMAIL . '. Address ' . BUSINESS_ADDRESS . '.',
+        ],
+        [
+            'id' => 'booking',
+            'title' => 'Appointment booking',
+            'url' => './#booking',
+            'text' => 'Appointments are recommended to save time. Customers can request a Foot Assessment, Custom Shoes or Footwear Fitting, Customised Insole Assessment, Pressure Sensor Scan, or Follow-up. The team reviews requests and confirms the slot. Monday to Friday opening hours are 9:00 AM to 6:00 PM. Saturday opening hours are 9:00 AM to 1:00 PM. Sunday is closed unless prior appointment and staff availability.',
+        ],
+        [
+            'id' => 'payment',
+            'title' => 'Payment and custom product policy',
+            'url' => './#faq',
+            'text' => 'Payment methods include card, QR, and account transfer. Payment terms are 50 percent deposit while placing order and balance 50 percent while delivery. Custom products are tailored and do not have standard returns for change of mind. If fit is off, Flexi Feet can help with adjustments or remake according to policy.',
+        ],
+        [
+            'id' => 'agents',
+            'title' => 'Agent instructions',
+            'url' => 'llms.txt',
+            'text' => flexifeet_support_project_text('llms.txt'),
+        ],
+        [
+            'id' => 'homepage',
+            'title' => 'Website service content',
+            'url' => './',
+            'text' => flexifeet_support_project_text('index.php'),
+        ],
+    ];
+
+    foreach (read_blog_posts(true) as $post) {
+        $documents[] = [
+            'id' => 'blog-' . ($post['slug'] ?? $post['id'] ?? count($documents)),
+            'title' => (string) ($post['title'] ?? 'Flexi Feet blog post'),
+            'url' => 'blog-post.php?slug=' . ($post['slug'] ?? ''),
+            'text' => trim(($post['title'] ?? '') . ' ' . ($post['excerpt'] ?? '') . ' ' . ($post['content'] ?? '')),
+        ];
+    }
+
+    return array_merge(
+        array_values(array_filter($documents, fn($doc) => trim((string) ($doc['text'] ?? '')) !== '')),
+        flexifeet_support_dataset_documents(),
+        flexifeet_support_multilingual_documents(),
+        flexifeet_support_wikidata_documents(),
+        flexifeet_support_local_ttt_documents(),
+        flexifeet_support_byte_block_documents(),
+        flexifeet_support_remote_hf_documents()
+    );
+}
+
+function flexifeet_support_seed_dataset_rows(): array
+{
+    return [
+        ['category' => 'FEEDBACK', 'intent' => 'complaint', 'instruction' => 'I have a complaint or something is not working', 'response' => 'Acknowledge the issue, ask for name, phone or email, subject, and details, then create a support ticket.'],
+        ['category' => 'FEEDBACK', 'intent' => 'review', 'instruction' => 'I want to leave feedback about the service', 'response' => 'Thank the customer and invite them to share feedback or a support ticket if follow-up is needed.'],
+        ['category' => 'CONTACT', 'intent' => 'contact_customer_service', 'instruction' => 'I need to contact a human support agent', 'response' => 'Provide Flexi Feet phone, email, WhatsApp, and appointment booking options.'],
+        ['category' => 'ORDER', 'intent' => 'place_order', 'instruction' => 'I want to place an order or book a fitting', 'response' => 'Treat ordering as an appointment request and collect booking type, name, phone, email, date, and available time.'],
+        ['category' => 'ORDER', 'intent' => 'change_order', 'instruction' => 'I need to change my appointment or fitting request', 'response' => 'Ask for the appointment reference or contact details and create a support ticket or new booking request.'],
+        ['category' => 'ORDER', 'intent' => 'cancel_order', 'instruction' => 'I need to cancel my appointment', 'response' => 'Ask for appointment reference, name, phone, and preferred cancellation details, then route to support ticket.'],
+        ['category' => 'PAYMENT', 'intent' => 'check_payment_methods', 'instruction' => 'What payment methods do you accept', 'response' => 'Answer that Flexi Feet accepts card, QR, and account transfer based on the FAQ.'],
+        ['category' => 'PAYMENT', 'intent' => 'payment_issue', 'instruction' => 'I have a payment problem', 'response' => 'Ask for safe non-sensitive payment details and create a support ticket; never request card numbers.'],
+        ['category' => 'REFUND', 'intent' => 'check_refund_policy', 'instruction' => 'What is the return or refund policy', 'response' => 'Explain custom products do not have standard returns for change of mind and fit issues can be reviewed.'],
+        ['category' => 'DELIVERY', 'intent' => 'delivery_period', 'instruction' => 'How long does it take to receive custom diabetic shoes', 'response' => 'Answer that custom-made diabetic shoes usually take 3 to 4 weeks based on the FAQ.'],
+        ['category' => 'DELIVERY', 'intent' => 'delivery_options', 'instruction' => 'Do you offer home visits or service outside KL', 'response' => 'Answer home visits may be possible by prior appointment with travel cost inside KL, and monthly travel may include Ipoh and JB Kulai.'],
+        ['category' => 'ACCOUNT', 'intent' => 'registration_problems', 'instruction' => 'I cannot use the website form or support bot', 'response' => 'Offer phone, WhatsApp, and support ticket fallback.'],
+    ];
+}
+
+function flexifeet_support_dataset_documents(int $limit = 400): array
+{
+    $rows = [];
+    $datasetFiles = [
+        SUPPORT_TRAINING_DATASET_FILE,
+        STORAGE_DIR . '/Bitext_Sample_Customer_Support_Training_Dataset_27K_responses-v11.csv',
+    ];
+    foreach ($datasetFiles as $file) {
+        if (!is_file($file)) {
+            continue;
+        }
+        $handle = fopen($file, 'r');
+        if (!$handle) {
+            continue;
+        }
+        $headers = fgetcsv($handle);
+        if (!is_array($headers)) {
+            fclose($handle);
+            continue;
+        }
+        $headers = array_map(fn($header) => strtolower(trim((string) $header)), $headers);
+        while (($row = fgetcsv($handle)) !== false && count($rows) < $limit) {
+            $item = [];
+            foreach ($headers as $index => $header) {
+                $item[$header] = (string) ($row[$index] ?? '');
+            }
+            if (($item['instruction'] ?? '') !== '' || ($item['response'] ?? '') !== '') {
+                $rows[] = $item;
+            }
+        }
+        fclose($handle);
+        break;
+    }
+    if (empty($rows)) {
+        $rows = flexifeet_support_seed_dataset_rows();
+    }
+
+    $documents = [];
+    foreach (array_slice($rows, 0, $limit) as $index => $row) {
+        $category = normalize_text($row['category'] ?? 'CUSTOMER_SUPPORT', 80);
+        $intent = normalize_text($row['intent'] ?? 'support_intent', 100);
+        $instruction = normalize_text($row['instruction'] ?? '', 600);
+        $response = normalize_text($row['response'] ?? '', 900);
+        if ($instruction === '' && $response === '') {
+            continue;
+        }
+        $documents[] = [
+            'id' => 'dataset-' . slugify($category . '-' . $intent . '-' . $index),
+            'title' => 'Support dataset: ' . $category . ' / ' . $intent,
+            'url' => 'dataset:bitext-customer-support',
+            'dataset' => 'Bitext customer support intent pattern',
+            'category' => $category,
+            'intent' => $intent,
+            'text' => 'Customer instruction pattern: ' . $instruction . ' Assistant behavior pattern: ' . $response,
+        ];
+    }
+
+    return array_values(array_filter($documents, fn($doc) => trim((string) ($doc['text'] ?? '')) !== ''));
+}
+
+function flexifeet_support_multilingual_seed_rows(): array
+{
+    return [
+        ['language' => 'ms', 'intent' => 'booking', 'instruction' => 'Saya mahu buat temujanji untuk kasut diabetes dan imbasan kaki 3D', 'response' => 'Bantu pelanggan membuat temujanji Flexi Feet dan minta nama, telefon, emel, tarikh, masa, dan jenis perkhidmatan.'],
+        ['language' => 'ms', 'intent' => 'service', 'instruction' => 'Adakah Flexi Feet ada insole ortopedik dan kasut khas untuk kaki diabetes', 'response' => 'Terangkan perkhidmatan kasut diabetes, insole ortopedik, offload insole, stoking diabetes, dan pemeriksaan kaki 3D di Sentul.'],
+        ['language' => 'ta', 'intent' => 'booking', 'instruction' => 'நான் நீரிழிவு காலணிகளுக்காக நேரம் பதிவு செய்ய வேண்டும்', 'response' => 'Flexi Feet சந்திப்பை பதிவு செய்ய பெயர், தொலைபேசி, மின்னஞ்சல், தேதி, நேரம், மற்றும் சேவை வகையை கேளுங்கள்.'],
+        ['language' => 'ta', 'intent' => 'service', 'instruction' => 'நீரிழிவு காலணிகள் மற்றும் 3D கால் ஸ்கேன் கிடைக்குமா', 'response' => 'Sentul, Kuala Lumpur இல் Flexi Feet custom diabetic shoes, orthopaedic insoles, மற்றும் 3D foot assessment வழங்குகிறது என்று பதிலளிக்கவும்.'],
+        ['language' => 'zh', 'intent' => 'booking', 'instruction' => '我想预约糖尿病鞋和3D足部扫描', 'response' => '帮助客户预约 Flexi Feet，并询问姓名、电话、电邮、日期、时间和服务类型。'],
+        ['language' => 'zh', 'intent' => 'service', 'instruction' => 'Flexi Feet 有糖尿病鞋和矫形鞋垫吗', 'response' => '说明 Flexi Feet 在吉隆坡 Sentul 提供糖尿病鞋、矫形鞋垫、减压鞋垫、糖尿病袜和3D足部评估。'],
+        ['language' => 'hi', 'intent' => 'booking', 'instruction' => 'मुझे डायबिटिक शूज़ और 3D फुट स्कैन के लिए अपॉइंटमेंट चाहिए', 'response' => 'Flexi Feet appointment के लिए नाम, फोन, ईमेल, तारीख, समय और सेवा प्रकार मांगें।'],
+        ['language' => 'ar', 'intent' => 'service', 'instruction' => 'هل توفرون أحذية مرضى السكري وفحص القدم ثلاثي الأبعاد', 'response' => 'اشرح أن Flexi Feet تقدم أحذية مخصصة لمرضى السكري، فرشات تقويمية، وجهاز تقييم القدم ثلاثي الأبعاد في سنتول كوالالمبور.'],
+        ['language' => 'es', 'intent' => 'service', 'instruction' => 'Tienen zapatos para diabetes y plantillas ortopedicas', 'response' => 'Explique que Flexi Feet ofrece zapatos diabeticos a medida, plantillas ortopedicas, plantillas de descarga, medias diabeticas y evaluacion 3D del pie.'],
+        ['language' => 'fr', 'intent' => 'booking', 'instruction' => 'Je veux prendre rendez-vous pour des chaussures diabetiques et un scan 3D du pied', 'response' => 'Aidez le client a demander un rendez-vous Flexi Feet avec nom, telephone, email, date, heure et type de service.'],
+    ];
+}
+
+function flexifeet_support_multilingual_documents(int $limit = 300): array
+{
+    $rows = [];
+    if (is_file(SUPPORT_MULTILINGUAL_DATASET_FILE)) {
+        $handle = fopen(SUPPORT_MULTILINGUAL_DATASET_FILE, 'r');
+        if ($handle) {
+            $headers = fgetcsv($handle);
+            if (is_array($headers)) {
+                $headers = array_map(fn($header) => strtolower(trim((string) $header)), $headers);
+                while (($row = fgetcsv($handle)) !== false && count($rows) < $limit) {
+                    $item = [];
+                    foreach ($headers as $index => $header) {
+                        $item[$header] = (string) ($row[$index] ?? '');
+                    }
+                    if (($item['instruction'] ?? '') !== '' || ($item['response'] ?? '') !== '') {
+                        $rows[] = $item;
+                    }
+                }
+            }
+            fclose($handle);
+        }
+    }
+    if (empty($rows)) {
+        $rows = flexifeet_support_multilingual_seed_rows();
+    }
+
+    $documents = [];
+    foreach (array_slice($rows, 0, $limit) as $index => $row) {
+        $language = normalize_text($row['language'] ?? $row['lang'] ?? 'multi', 12);
+        $intent = normalize_text($row['intent'] ?? 'multilingual_support', 100);
+        $instruction = normalize_text($row['instruction'] ?? $row['question'] ?? $row['query'] ?? '', 700);
+        $response = normalize_text($row['response'] ?? $row['answer'] ?? $row['completion'] ?? '', 900);
+        if ($instruction === '' && $response === '') {
+            continue;
+        }
+        $documents[] = [
+            'id' => 'multilingual-' . slugify($language . '-' . $intent . '-' . $index),
+            'title' => 'Multilingual support pattern: ' . strtoupper($language) . ' / ' . $intent,
+            'url' => 'dataset:multilingual-support',
+            'dataset' => 'Multilingual support and QA pattern',
+            'language' => $language,
+            'intent' => $intent,
+            'text' => 'Language: ' . $language . '. Customer pattern: ' . $instruction . ' Assistant behavior pattern: ' . $response,
+        ];
+    }
+    return array_values(array_filter($documents, fn($doc) => trim((string) ($doc['text'] ?? '')) !== ''));
+}
+
+function flexifeet_support_wikidata_seed_rows(): array
+{
+    return [
+        ['id' => 'flexifeet-business', 'label' => 'Flexi Feet Sdn Bhd', 'description' => 'custom diabetic footwear, orthopaedic insoles, offload insoles, diabetic socks, compression socks, 3D foot scanning, and pressure assessment provider in Sentul, Kuala Lumpur, Malaysia', 'aliases' => ['Flexi Feet', 'Flexifeet']],
+        ['id' => 'sentul-kl', 'label' => 'Sentul', 'description' => 'district in Kuala Lumpur where Flexi Feet serves appointment-based foot care customers', 'aliases' => ['Sentul Kuala Lumpur', 'Kampung Batu Muda']],
+        ['id' => 'diabetic-shoe', 'label' => 'Diabetic shoe', 'description' => 'protective footwear designed to reduce pressure and rubbing for people with diabetes-related foot risk', 'aliases' => ['diabetes shoes', 'therapeutic shoes']],
+        ['id' => 'orthotic-insole', 'label' => 'Orthotic insole', 'description' => 'custom or prefabricated foot support used to improve alignment, comfort, pressure distribution, and walking support', 'aliases' => ['orthopaedic insole', 'custom insole']],
+        ['id' => 'offloading', 'label' => 'Offloading', 'description' => 'foot care approach that redistributes pressure away from high-risk or painful areas', 'aliases' => ['pressure relief', 'offload insole']],
+        ['id' => 'plantar-pressure', 'label' => 'Plantar pressure', 'description' => 'pressure under the foot that can be measured during assessment to guide insole and footwear choices', 'aliases' => ['pressure scan', 'foot pressure assessment']],
+        ['id' => 'diabetes', 'label' => 'Diabetes', 'description' => 'medical condition that can increase foot risk and may require protective footwear, monitoring, and professional care', 'aliases' => ['diabetes mellitus']],
+        ['id' => 'foot-ulcer', 'label' => 'Diabetic foot ulcer', 'description' => 'wound risk related to pressure, sensation, circulation, and diabetes that needs healthcare attention', 'aliases' => ['foot wound', 'ulcer prevention']],
+    ];
+}
+
+function flexifeet_support_wikidata_documents(int $limit = 200): array
+{
+    $rows = [];
+    if (is_file(SUPPORT_WIKIDATA_DATASET_FILE)) {
+        $handle = fopen(SUPPORT_WIKIDATA_DATASET_FILE, 'r');
+        if ($handle) {
+            while (($line = fgets($handle)) !== false && count($rows) < $limit) {
+                $item = json_decode(trim($line), true);
+                if (is_array($item)) {
+                    $rows[] = $item;
+                }
+            }
+            fclose($handle);
+        }
+    }
+    if (empty($rows)) {
+        $rows = flexifeet_support_wikidata_seed_rows();
+    }
+
+    $documents = [];
+    foreach (array_slice($rows, 0, $limit) as $index => $row) {
+        $labels = $row['labels'] ?? [];
+        $descriptions = $row['descriptions'] ?? [];
+        $label = is_array($labels) ? ($labels['en'] ?? reset($labels) ?: '') : ($row['label'] ?? '');
+        $description = is_array($descriptions) ? ($descriptions['en'] ?? reset($descriptions) ?: '') : ($row['description'] ?? '');
+        $aliases = $row['aliases'] ?? [];
+        if (is_array($aliases)) {
+            $aliases = implode(', ', array_map(fn($alias) => is_array($alias) ? (string) reset($alias) : (string) $alias, $aliases));
+        }
+        $label = normalize_text((string) $label, 160);
+        $description = normalize_text((string) $description, 900);
+        $aliases = normalize_text((string) $aliases, 500);
+        if ($label === '' && $description === '') {
+            continue;
+        }
+        $documents[] = [
+            'id' => 'wikidata-' . slugify((string) ($row['id'] ?? $label ?? $index)),
+            'title' => 'Wikidata entity: ' . ($label !== '' ? $label : 'entity ' . $index),
+            'url' => 'dataset:wikidata',
+            'dataset' => 'Wikidata multilingual entity grounding',
+            'entity_id' => normalize_text((string) ($row['id'] ?? ''), 80),
+            'text' => 'Entity label: ' . $label . '. Description: ' . $description . '. Aliases: ' . $aliases,
+        ];
+    }
+    return array_values(array_filter($documents, fn($doc) => trim((string) ($doc['text'] ?? '')) !== ''));
+}
+
+function flexifeet_support_local_ttt_documents(): array
+{
+    $documents = [];
+    foreach (read_support_ttt_documents() as $index => $row) {
+        $text = normalize_text((string) ($row['text'] ?? ''), 1200);
+        if ($text === '') {
+            continue;
+        }
+        $documents[] = [
+            'id' => 'ttt-memory-' . slugify((string) ($row['id'] ?? $index)),
+            'title' => 'TTT local learning: ' . normalize_text((string) ($row['intent'] ?? 'support'), 80),
+            'url' => 'storage:support-ttt-memory',
+            'dataset' => 'Local test-time training memory',
+            'intent' => normalize_text((string) ($row['intent'] ?? ''), 60),
+            'language' => normalize_text((string) ($row['language'] ?? 'en'), 12),
+            'text' => $text,
+        ];
+    }
+    return $documents;
+}
+
+function flexifeet_support_store_ttt_memory(string $message, array $documents, string $intent, string $language): void
+{
+    if (empty($documents)) {
+        return;
+    }
+    $queryTokens = flexifeet_support_tokenize($message);
+    $productTokens = array_intersect($queryTokens, flexifeet_support_scope_tokens_for_language($language));
+    if (empty($productTokens) && !in_array($intent, ['greeting', 'booking', 'ticket', 'service'], true)) {
+        return;
+    }
+
+    $memory = read_support_ttt_documents();
+    $key = sha1($intent . '|' . $language . '|' . implode(' ', array_slice($queryTokens, 0, 12)));
+    foreach ($memory as $existing) {
+        if (($existing['key'] ?? '') === $key) {
+            return;
+        }
+    }
+
+    $snippets = [];
+    foreach (array_slice($documents, 0, 2) as $document) {
+        $snippet = flexifeet_support_public_snippet((string) ($document['text'] ?? ''), (string) ($document['dataset'] ?? ''), 220);
+        if ($snippet !== '') {
+            $snippets[] = $snippet;
+        }
+    }
+    if (empty($snippets)) {
+        return;
+    }
+    $memory[] = [
+        'id' => 'TTT-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
+        'key' => $key,
+        'intent' => $intent,
+        'language' => $language,
+        'query_terms' => array_slice($queryTokens, 0, 18),
+        'text' => 'For similar Flexi Feet queries, prefer these dataset-backed details: ' . implode(' ', array_filter($snippets)),
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+    save_support_ttt_documents($memory);
+}
+
+function flexifeet_support_store_feedback_memory(array $feedback): void
+{
+    $terms = array_filter($feedback['query_terms'] ?? []);
+    if (empty($terms)) {
+        return;
+    }
+    $memory = read_support_ttt_documents();
+    $key = sha1('feedback|' . ($feedback['intent'] ?? '') . '|' . implode(' ', $terms));
+    foreach ($memory as $existing) {
+        if (($existing['key'] ?? '') === $key) {
+            return;
+        }
+    }
+    $memory[] = [
+        'id' => 'TTT-FB-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
+        'key' => $key,
+        'intent' => normalize_text((string) ($feedback['intent'] ?? 'support'), 60),
+        'language' => normalize_text((string) ($feedback['language'] ?? 'en'), 12),
+        'query_terms' => array_slice($terms, 0, 18),
+        'text' => 'A visitor liked this answer style for Flexi Feet query terms: ' . implode(', ', array_slice($terms, 0, 18)) . '. Keep future answers concise, grounded in Flexi Feet services, and action-oriented.',
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+    save_support_ttt_documents($memory);
+}
+
+function flexifeet_support_hf_dataset_specs(): array
+{
+    return [
+        [
+            'dataset' => 'bitext/Bitext-customer-support-llm-chatbot-training-dataset',
+            'config' => 'default',
+            'split' => 'train',
+            'kind' => 'customer_support',
+        ],
+        [
+            'dataset' => 'AmazonScience/mintaka',
+            'config' => 'default',
+            'split' => 'train',
+            'kind' => 'multilingual_wikidata_qa',
+        ],
+        [
+            'dataset' => 'facebook/mlqa',
+            'config' => 'mlqa.en.en',
+            'split' => 'validation',
+            'kind' => 'multilingual_qa',
+        ],
+        [
+            'dataset' => 'google/xquad',
+            'config' => 'xquad.en',
+            'split' => 'validation',
+            'kind' => 'cross_lingual_qa',
+        ],
+        [
+            'dataset' => 'SEACrowd/tydiqa',
+            'config' => 'tydiqa_primary_task',
+            'split' => 'train',
+            'kind' => 'typologically_diverse_qa',
+        ],
+        [
+            'dataset' => 'unicamp-dl/mmarco',
+            'config' => 'english',
+            'split' => 'train',
+            'kind' => 'multilingual_retrieval',
+        ],
+        [
+            'dataset' => 'philippesaade/wikidata',
+            'config' => 'default',
+            'split' => 'train',
+            'kind' => 'wikidata_entities',
+        ],
+    ];
+}
+
+function flexifeet_support_http_json(string $url): ?array
+{
+    if (!SUPPORT_HF_REMOTE_ENABLED || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return null;
+    }
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 2.5,
+            'header' => "User-Agent: FlexiFeetSupport/1.0\r\nAccept: application/json\r\n",
+            'ignore_errors' => true,
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    if (!is_string($raw) || $raw === '') {
+        return null;
+    }
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : null;
+}
+
+function flexifeet_support_hf_rows(array $spec, int $limit): array
+{
+    static $cache = [];
+
+    $dataset = (string) ($spec['dataset'] ?? '');
+    $config = (string) ($spec['config'] ?? 'default');
+    $split = (string) ($spec['split'] ?? 'train');
+    $length = max(1, min(100, $limit));
+    $cacheKey = $dataset . '|' . $config . '|' . $split . '|' . $length;
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
+    $query = http_build_query([
+        'dataset' => $dataset,
+        'config' => $config,
+        'split' => $split,
+        'offset' => 0,
+        'length' => $length,
+    ]);
+    $data = flexifeet_support_http_json('https://datasets-server.huggingface.co/rows?' . $query);
+    $rows = [];
+    foreach (($data['rows'] ?? []) as $item) {
+        if (isset($item['row']) && is_array($item['row'])) {
+            $rows[] = $item['row'];
+        }
+    }
+    $cache[$cacheKey] = $rows;
+    return $rows;
+}
+
+function flexifeet_support_hf_search_rows(array $spec, string $query, int $limit): array
+{
+    static $cache = [];
+
+    $dataset = (string) ($spec['dataset'] ?? '');
+    $config = (string) ($spec['config'] ?? 'default');
+    $split = (string) ($spec['split'] ?? 'train');
+    $query = trim(implode(' ', array_slice(flexifeet_support_tokenize($query), 0, 5)));
+    if ($dataset === '' || $query === '') {
+        return [];
+    }
+
+    $length = max(1, min(20, $limit));
+    $cacheKey = $dataset . '|' . $config . '|' . $split . '|' . $query . '|' . $length;
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
+    $params = http_build_query([
+        'dataset' => $dataset,
+        'config' => $config,
+        'split' => $split,
+        'query' => $query,
+        'offset' => 0,
+        'length' => $length,
+    ]);
+    $data = flexifeet_support_http_json('https://datasets-server.huggingface.co/search?' . $params);
+    $rows = [];
+    foreach (($data['rows'] ?? []) as $item) {
+        if (isset($item['row']) && is_array($item['row'])) {
+            $rows[] = $item['row'];
+        }
+    }
+    $cache[$cacheKey] = $rows;
+    return $rows;
+}
+
+function flexifeet_support_flatten_value($value, int $depth = 0): string
+{
+    if ($depth > 3) {
+        return '';
+    }
+    if (is_scalar($value) || $value === null) {
+        return trim((string) $value);
+    }
+    if (!is_array($value)) {
+        return '';
+    }
+    $parts = [];
+    foreach ($value as $key => $item) {
+        $flat = flexifeet_support_flatten_value($item, $depth + 1);
+        if ($flat !== '') {
+            $parts[] = is_string($key) ? $key . ': ' . $flat : $flat;
+        }
+    }
+    return trim(implode(' ', array_slice($parts, 0, 20)));
+}
+
+function flexifeet_support_remote_hf_documents(): array
+{
+    if (!SUPPORT_HF_REMOTE_ENABLED) {
+        return [];
+    }
+
+    $documents = [];
+    $perDatasetLimit = max(2, min(24, SUPPORT_HF_REMOTE_LIMIT));
+    foreach (flexifeet_support_hf_dataset_specs() as $spec) {
+        $rows = flexifeet_support_hf_rows($spec, $perDatasetLimit);
+        foreach ($rows as $index => $row) {
+            $question = flexifeet_support_flatten_value($row['instruction'] ?? $row['question'] ?? $row['query'] ?? $row['title'] ?? '');
+            $answer = flexifeet_support_flatten_value($row['response'] ?? $row['answer'] ?? $row['answers'] ?? $row['context'] ?? $row['text'] ?? '');
+            $metadata = flexifeet_support_flatten_value(array_diff_key($row, array_flip(['instruction', 'question', 'query', 'title', 'response', 'answer', 'answers', 'context', 'text'])));
+            $text = trim('Remote HF pattern: ' . $question . ' Response/context/entity data: ' . $answer . ' Metadata: ' . $metadata);
+            if (mb_strlen($text) < 24) {
+                continue;
+            }
+            $documents[] = [
+                'id' => 'hf-' . slugify((string) ($spec['dataset'] ?? 'dataset') . '-' . $index),
+                'title' => 'HF remote ' . ($spec['kind'] ?? 'dataset') . ': ' . ($spec['dataset'] ?? 'dataset'),
+                'url' => 'https://huggingface.co/datasets/' . ($spec['dataset'] ?? ''),
+                'dataset' => 'Hugging Face remote HTTP dataset row',
+                'source_dataset' => $spec['dataset'] ?? '',
+                'source_kind' => $spec['kind'] ?? '',
+                'text' => normalize_text($text, 1400),
+            ];
+        }
+    }
+    return $documents;
+}
+
+function flexifeet_support_remote_hf_documents_for_query(string $message, int $limit = 8): array
+{
+    if (!SUPPORT_HF_REMOTE_ENABLED) {
+        return [];
+    }
+
+    $documents = [];
+    $perDatasetLimit = max(1, min(4, $limit));
+    foreach (flexifeet_support_hf_dataset_specs() as $spec) {
+        $rows = flexifeet_support_hf_search_rows($spec, $message, $perDatasetLimit);
+        if (empty($rows)) {
+            continue;
+        }
+        foreach ($rows as $index => $row) {
+            $question = flexifeet_support_flatten_value($row['instruction'] ?? $row['question'] ?? $row['query'] ?? $row['title'] ?? '');
+            $answer = flexifeet_support_flatten_value($row['response'] ?? $row['answer'] ?? $row['answers'] ?? $row['context'] ?? $row['text'] ?? '');
+            $metadata = flexifeet_support_flatten_value(array_diff_key($row, array_flip(['instruction', 'question', 'query', 'title', 'response', 'answer', 'answers', 'context', 'text'])));
+            $text = trim('Remote HF query match: ' . $question . ' Response/context/entity data: ' . $answer . ' Metadata: ' . $metadata);
+            if (mb_strlen($text) < 24) {
+                continue;
+            }
+            $documents[] = [
+                'score' => 0.15,
+                'id' => 'hf-query-' . slugify((string) ($spec['dataset'] ?? 'dataset') . '-' . $index),
+                'title' => 'HF query match ' . ($spec['kind'] ?? 'dataset') . ': ' . ($spec['dataset'] ?? 'dataset'),
+                'url' => 'https://huggingface.co/datasets/' . ($spec['dataset'] ?? ''),
+                'dataset' => 'Hugging Face remote HTTP search row',
+                'source_dataset' => $spec['dataset'] ?? '',
+                'source_kind' => $spec['kind'] ?? '',
+                'text' => normalize_text($text, 1400),
+            ];
+        }
+    }
+    return array_slice($documents, 0, $limit);
+}
+
+function flexifeet_support_dataset_sources(): array
+{
+    $sources = ['flexifeet_project_files'];
+    if (is_file(SUPPORT_TRAINING_DATASET_FILE)) {
+        $sources[] = 'storage/support-training-dataset.csv';
+    } elseif (is_file(STORAGE_DIR . '/Bitext_Sample_Customer_Support_Training_Dataset_27K_responses-v11.csv')) {
+        $sources[] = 'storage/Bitext_Sample_Customer_Support_Training_Dataset_27K_responses-v11.csv';
+    } else {
+        $sources[] = 'built_in_bitext_style_customer_support_seed';
+    }
+    $sources[] = is_file(SUPPORT_MULTILINGUAL_DATASET_FILE)
+        ? 'storage/support-multilingual-dataset.csv'
+        : 'built_in_multilingual_support_seed';
+    $sources[] = is_file(SUPPORT_WIKIDATA_DATASET_FILE)
+        ? 'storage/wikidata-flexifeet.jsonl'
+        : 'built_in_wikidata_entity_seed';
+    $sources[] = 'raw_repository_byte_blocks';
+    if (SUPPORT_HF_REMOTE_ENABLED) {
+        foreach (flexifeet_support_hf_dataset_specs() as $spec) {
+            $sources[] = 'hf_remote_http:' . ($spec['dataset'] ?? 'dataset');
+        }
+    } else {
+        $sources[] = 'hf_remote_http_disabled';
+    }
+    return $sources;
+}
+
+function flexifeet_support_model(): array
+{
+    $documents = [];
+    $documentFrequency = [];
+    $bigrams = [];
+    $trigrams = [];
+    foreach (flexifeet_support_training_documents() as $document) {
+        $tokens = flexifeet_support_tokenize((string) ($document['title'] ?? '') . ' ' . (string) ($document['text'] ?? ''));
+        $counts = array_count_values($tokens);
+        foreach (array_keys($counts) as $token) {
+            $documentFrequency[$token] = ($documentFrequency[$token] ?? 0) + 1;
+        }
+        for ($i = 0, $count = count($tokens); $i < $count - 1; $i++) {
+            $key = $tokens[$i] . ' ' . $tokens[$i + 1];
+            $bigrams[$key] = ($bigrams[$key] ?? 0) + 1;
+        }
+        for ($i = 0, $count = count($tokens); $i < $count - 2; $i++) {
+            $key = $tokens[$i] . ' ' . $tokens[$i + 1] . ' ' . $tokens[$i + 2];
+            $trigrams[$key] = ($trigrams[$key] ?? 0) + 1;
+        }
+        $documents[] = $document + [
+            'tokens' => $counts,
+            'token_count' => count($tokens),
+        ];
+    }
+
+    $documentCount = max(1, count($documents));
+    $semanticWeights = [];
+    foreach ($documentFrequency as $token => $frequency) {
+        $semanticWeights[$token] = round(log(($documentCount + 1) / ($frequency + 1)) + 1, 4);
+    }
+    arsort($semanticWeights);
+
+    $fileWeights = [];
+    foreach ($documents as &$document) {
+        $vector = [];
+        foreach ($document['tokens'] as $token => $count) {
+            $tf = $count / max(1, (int) $document['token_count']);
+            $vector[$token] = round($tf * ($semanticWeights[$token] ?? 1.0), 6);
+        }
+        arsort($vector);
+        $document['vector'] = array_slice($vector, 0, 80, true);
+        $fileWeights[(string) $document['id']] = [
+            'title' => $document['title'],
+            'url' => $document['url'],
+            'top_tokens' => array_slice(array_keys($document['vector']), 0, 12),
+            'token_count' => $document['token_count'],
+        ];
+    }
+    unset($document);
+    arsort($bigrams);
+    arsort($trigrams);
+
+    return [
+        'name' => 'FlexiFeetSupport',
+        'version' => '1.0-local',
+        'training_mode' => 'raw_files_as_block_weights',
+        'trained_at' => gmdate(DATE_ATOM),
+        'dataset_sources' => flexifeet_support_dataset_sources(),
+        'block_index' => [
+            'objective' => 'raw_file_byte_block_semantics',
+            'block_bytes' => max(512, min(8192, SUPPORT_BLOCK_BYTES)),
+            'block_limit' => max(12, min(240, SUPPORT_BLOCK_LIMIT)),
+            'source_files' => flexifeet_support_raw_block_files(),
+        ],
+        'semantic_weights' => $semanticWeights,
+        'file_weights' => $fileWeights,
+        'language_model' => [
+            'objective' => 'php_local_corpus_ngram_semantics',
+            'corpus' => 'Flexi Feet project files and JSON content',
+            'bigrams' => array_slice($bigrams, 0, 250, true),
+            'trigrams' => array_slice($trigrams, 0, 250, true),
+        ],
+        'documents' => $documents,
+    ];
+}
+
+function flexifeet_support_learned_terms(string $message, int $limit = 6): array
+{
+    $model = flexifeet_support_model();
+    $queryTokens = flexifeet_support_tokenize($message);
+    $terms = [];
+    foreach ($model['language_model']['trigrams'] as $phrase => $weight) {
+        if (!flexifeet_support_public_phrase($phrase)) {
+            continue;
+        }
+        foreach ($queryTokens as $token) {
+            if (strpos($phrase, $token) !== false) {
+                $terms[$phrase] = $weight;
+                break;
+            }
+        }
+        if (count($terms) >= $limit) {
+            break;
+        }
+    }
+    if (count($terms) < $limit) {
+        foreach ($model['language_model']['bigrams'] as $phrase => $weight) {
+            if (!flexifeet_support_public_phrase($phrase)) {
+                continue;
+            }
+            foreach ($queryTokens as $token) {
+                if (strpos($phrase, $token) !== false && !isset($terms[$phrase])) {
+                    $terms[$phrase] = $weight;
+                    break;
+                }
+            }
+            if (count($terms) >= $limit) {
+                break;
+            }
+        }
+    }
+    return array_keys($terms);
+}
+
+function flexifeet_support_public_phrase(string $phrase): bool
+{
+    if (preg_match('/\b(ok false|ok true|return false|return true|function|json|array|isset|foreach|endif|csrf|token|password|private key|bin2hex|random bytes|render markdown|includes functions|raw file|byte block|support ttt documents|customer instruction pattern|customer instruction|assistant behavior pattern|assistant behavior|assistant|if preg match|https|googleapis|instagram|assets images|php bytes|type offer|itemoffered|continue documents|documents flexifeet|flexifeet support response|flexifeet support flatten|support flatten value|booking owner email|details customer)\b/i', $phrase)) {
+        return false;
+    }
+    if (preg_match('/[a-z\p{L}]/iu', $phrase) !== 1) {
+        return false;
+    }
+    foreach (flexifeet_support_scope_tokens_for_language('en') as $token) {
+        if (strpos(mb_strtolower($phrase, 'UTF-8'), mb_strtolower($token, 'UTF-8')) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function flexifeet_support_public_snippet(string $text, string $dataset = '', int $maxLength = 240): string
+{
+    $original = $text;
+    $text = trim(preg_replace('/\s+/', ' ', strip_tags($text)) ?? '');
+    $text = preg_replace('/^Raw file byte block from [^.]+\. Content:\s*/i', '', $text) ?? $text;
+    $text = preg_replace('/^For similar Flexi Feet queries, prefer these dataset-backed details:\s*/i', '', $text) ?? $text;
+
+    if (preg_match('/Customer instruction pattern:\s*(.*?)\s*Assistant behavior pattern:\s*(.*)/i', $text, $matches)) {
+        $behavior = trim($matches[2]);
+        $behavior = preg_replace('/^Answer that\s+/i', '', $behavior) ?? $behavior;
+        $behavior = preg_replace('/^Explain\s+/i', '', $behavior) ?? $behavior;
+        $behavior = preg_replace('/^Provide\s+/i', '', $behavior) ?? $behavior;
+        $behavior = preg_replace('/^Offer\s+/i', '', $behavior) ?? $behavior;
+        $behavior = preg_replace('/^Ask for\s+/i', 'Ask for ', $behavior) ?? $behavior;
+        $text = $behavior;
+    }
+
+    if (stripos($dataset, 'Hugging Face remote') !== false) {
+        return '';
+    }
+    if (preg_match('/\b(id:|answer_start:|Metadata:|Response\/context\/entity data:|\\$[A-Za-z_]|=>|<\\?php|SELECT|INSERT)\b/i', $text)) {
+        return '';
+    }
+    if (preg_match('/\bfunction\s+[A-Za-z_]|<\\?php|\\$_|csrf|private key|password_hash/i', $original)) {
+        return '';
+    }
+
+    return flexifeet_support_snippet($text, $maxLength);
+}
+
+function flexifeet_support_search(string $message, int $limit = 3): array
+{
+    $model = flexifeet_support_model();
+    $language = flexifeet_support_detect_language($message);
+    $queryTokens = array_count_values(flexifeet_support_tokenize($message));
+    if (empty($queryTokens)) {
+        return [];
+    }
+
+    $results = [];
+    foreach ($model['documents'] as $document) {
+        $score = 0.0;
+        foreach ($queryTokens as $token => $queryWeight) {
+            if (isset($document['vector'][$token])) {
+                $score += $document['vector'][$token] * ($model['semantic_weights'][$token] ?? 1.0) * $queryWeight;
+            }
+        }
+        $documentLanguage = (string) ($document['language'] ?? '');
+        if ($documentLanguage !== '' && $documentLanguage !== 'multi' && $documentLanguage !== $language) {
+            $score *= 0.28;
+        }
+        $dataset = (string) ($document['dataset'] ?? '');
+        $id = (string) ($document['id'] ?? '');
+        if ($id === 'business' || $id === 'booking' || $id === 'payment' || $id === 'homepage') {
+            $score *= 1.35;
+        }
+        if ($dataset === 'Local test-time training memory') {
+            $score *= 0.42;
+        } elseif ($dataset === 'Raw repository byte block') {
+            $score *= 0.32;
+        } elseif (stripos($dataset, 'Hugging Face remote') !== false) {
+            $score *= 0.22;
+        }
+        if ($score > 0) {
+            $results[] = ['score' => $score] + $document;
+        }
+    }
+    foreach (flexifeet_support_remote_hf_documents_for_query($message, 6) as $document) {
+        $docTokens = array_count_values(flexifeet_support_tokenize((string) ($document['title'] ?? '') . ' ' . (string) ($document['text'] ?? '')));
+        $score = 0.0;
+        foreach ($queryTokens as $token => $queryWeight) {
+            if (isset($docTokens[$token])) {
+                $score += min(3, $docTokens[$token]) * ($model['semantic_weights'][$token] ?? 1.0) * $queryWeight * 0.035;
+            }
+        }
+        if ($score > 0) {
+            $results[] = ['score' => max($score, (float) ($document['score'] ?? 0.1))] + $document;
+        }
+    }
+    usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
+    return array_slice($results, 0, $limit);
+}
+
+function flexifeet_support_direct_facts(string $message): array
+{
+    $text = mb_strtolower($message, 'UTF-8');
+    $facts = [];
+
+    if (preg_match('/service|offer|provide|what do you do|available/i', $text)) {
+        $facts[] = 'Flexi Feet provides custom diabetic shoes, orthopaedic footwear, custom offload insoles, flat feet insoles, diabetic socks, compression socks, 3D foot scanning, pressure assessment, fittings, and follow-ups.';
+    }
+    if (preg_match('/deposit|payment|pay|price|cost/i', $text)) {
+        $facts[] = 'Payment methods include card, QR, and account transfer. Custom orders use a 50 percent deposit when placing the order and the remaining 50 percent on delivery.';
+    }
+    if (preg_match('/deliver|delivery|how long|ready|receive|take/i', $text)) {
+        $facts[] = 'Custom-made diabetic shoes usually take about 3 to 4 weeks, based on the current FAQ/support dataset.';
+    }
+    if (preg_match('/return|refund|change mind|cancel/i', $text)) {
+        $facts[] = 'Custom products are tailored, so there is no standard return for change of mind. Fit issues can be reviewed for adjustment or remake according to policy.';
+    }
+    if (preg_match('/open|hours|sunday|saturday|working hour|business hour/i', $text)) {
+        $facts[] = 'Opening hours are Monday to Friday 9:00 AM to 6:00 PM and Saturday 9:00 AM to 1:00 PM. Sunday is closed unless there is a prior appointment and staff availability.';
+    }
+    if (preg_match('/where|address|location|shop|store|clinic|sentul/i', $text)) {
+        $facts[] = 'Flexi Feet is at ' . BUSINESS_ADDRESS . '.';
+    }
+    if (preg_match('/sock|socks|compression/i', $text)) {
+        $facts[] = 'Flexi Feet supplies diabetic socks and compression socks as part of the footwear and foot protection plan.';
+    }
+    if (preg_match('/home visit|outside kl|ipoh|jb|kulai/i', $text)) {
+        $facts[] = 'Home visits may be possible by prior appointment with travel cost inside KL, and monthly travel may include Ipoh and JB Kulai.';
+    }
+    if (preg_match('/book|appointment|fitting|scan/i', $text)) {
+        $facts[] = 'For booking, choose the service type, then provide name, phone, email, preferred date, and an available time.';
+    }
+
+    return array_values(array_unique($facts));
+}
+
+function flexifeet_support_detect_language(string $message): string
+{
+    $lower = mb_strtolower($message, 'UTF-8');
+    if (preg_match('/\p{Tamil}/u', $message)) {
+        return 'ta';
+    }
+    if (preg_match('/\p{Han}/u', $message)) {
+        return 'zh';
+    }
+    if (preg_match('/\p{Arabic}/u', $message)) {
+        return 'ar';
+    }
+    if (preg_match('/\p{Devanagari}/u', $message)) {
+        return 'hi';
+    }
+    if (preg_match('/\b(temujanji|kasut|kaki|boleh|sokongan|imbasan|diabetes)\b/u', $lower)) {
+        return 'ms';
+    }
+    if (preg_match('/\b(zapatos|diabeticos|plantillas|cita|servicio|ayuda)\b/u', $lower)) {
+        return 'es';
+    }
+    if (preg_match('/\b(rendez|chaussures|semelles|diabetiques|service|aide)\b/u', $lower)) {
+        return 'fr';
+    }
+    return 'en';
+}
+
+function flexifeet_support_scope_tokens_for_language(string $language): array
+{
+    $tokens = ['service', 'services', 'offer', 'provide', 'shoe', 'shoes', 'diabetic', 'diabetes', 'insole', 'insoles', 'sock', 'socks', 'scan', 'scanning', '3d', 'flat', 'ulcer', 'charcot', 'bunion', 'amputation', 'foot', 'feet', 'orthopaedic', 'orthotic', 'pressure', 'sentul', 'payment', 'deposit', 'refund', 'return', 'delivery', 'order', 'hours', 'open', 'time', 'home', 'custom', 'booking', 'appointment', 'fitting', 'where', 'address', 'location', 'shop', 'store'];
+    $localized = [
+        'ms' => ['kasut', 'diabetes', 'insole', 'kaki', 'imbasan', 'temujanji', 'bayaran', 'stoking', 'ortopedik'],
+        'ta' => ['நீரிழிவு', 'காலணி', 'கால்', 'ஸ்கேன்', 'சந்திப்பு'],
+        'zh' => ['糖尿病', '鞋', '鞋垫', '足部', '扫描', '预约'],
+        'hi' => ['डायबिटिक', 'जूते', 'फुट', 'स्कैन', 'अपॉइंटमेंट'],
+        'ar' => ['السكري', 'أحذية', 'القدم', 'فحص', 'موعد'],
+        'es' => ['zapatos', 'diabeticos', 'plantillas', 'pie', 'cita'],
+        'fr' => ['chaussures', 'diabetiques', 'semelles', 'pied', 'rendez'],
+    ];
+    return array_merge($tokens, $localized[$language] ?? []);
+}
+
+function flexifeet_support_localized_prefix(string $language, string $intent): string
+{
+    $prefixes = [
+        'ms' => [
+            'booking' => 'Boleh. Saya boleh bantu minta temujanji Flexi Feet.',
+            'ticket' => 'Boleh. Saya boleh bantu rekod isu ini untuk pasukan sokongan Flexi Feet.',
+            'out_of_scope' => 'Saya hanya boleh bantu topik Flexi Feet, tempahan temujanji, dan sokongan pelanggan.',
+            'service' => 'Flexi Feet boleh membantu dengan kasut diabetes, insole ortopedik, offload insole, stoking diabetes, dan pemeriksaan kaki 3D di Sentul, Kuala Lumpur.',
+        ],
+        'ta' => [
+            'booking' => 'ஆம். Flexi Feet சந்திப்பை கோர உதவுகிறேன்.',
+            'ticket' => 'ஆம். இந்த பிரச்சனையை Flexi Feet support ticket ஆக பதிவு செய்ய உதவுகிறேன்.',
+            'out_of_scope' => 'நான் Flexi Feet சேவைகள், appointment booking, மற்றும் support tickets மட்டும் உதவ முடியும்.',
+            'service' => 'Flexi Feet diabetic shoes, orthopaedic insoles, offload insoles, socks, மற்றும் 3D foot assessment வழங்குகிறது.',
+        ],
+        'zh' => [
+            'booking' => '可以。我可以帮您申请 Flexi Feet 预约。',
+            'ticket' => '可以。我可以帮您把这个问题记录成 Flexi Feet 支持工单。',
+            'out_of_scope' => '我只能帮助 Flexi Feet 服务、预约和客户支持问题。',
+            'service' => 'Flexi Feet 在吉隆坡 Sentul 提供糖尿病鞋、矫形鞋垫、减压鞋垫、袜子和3D足部评估。',
+        ],
+        'hi' => [
+            'booking' => 'हाँ। मैं Flexi Feet appointment request में मदद कर सकता हूँ।',
+            'ticket' => 'हाँ। मैं इस समस्या के लिए Flexi Feet support ticket बनाने में मदद कर सकता हूँ।',
+            'out_of_scope' => 'मैं केवल Flexi Feet services, appointment booking, और support tickets में मदद कर सकता हूँ।',
+            'service' => 'Flexi Feet custom diabetic shoes, orthopaedic insoles, offload insoles, socks, और 3D foot assessment में मदद करता है।',
+        ],
+        'ar' => [
+            'booking' => 'نعم. يمكنني مساعدتك في طلب موعد مع Flexi Feet.',
+            'ticket' => 'نعم. يمكنني تسجيل هذه المشكلة كتذكرة دعم لدى Flexi Feet.',
+            'out_of_scope' => 'يمكنني فقط المساعدة في خدمات Flexi Feet والمواعيد وتذاكر الدعم.',
+            'service' => 'تساعد Flexi Feet في الأحذية المخصصة لمرضى السكري، الفرشات التقويمية، الجوارب، وتقييم القدم ثلاثي الأبعاد في سنتول كوالالمبور.',
+        ],
+        'es' => [
+            'booking' => 'Si. Puedo ayudar a solicitar una cita con Flexi Feet.',
+            'ticket' => 'Si. Puedo registrar este problema como ticket de soporte de Flexi Feet.',
+            'out_of_scope' => 'Solo puedo ayudar con servicios de Flexi Feet, citas y soporte al cliente.',
+            'service' => 'Flexi Feet ayuda con zapatos diabeticos a medida, plantillas ortopedicas, plantillas de descarga, medias y evaluacion 3D del pie.',
+        ],
+        'fr' => [
+            'booking' => 'Oui. Je peux aider a demander un rendez-vous Flexi Feet.',
+            'ticket' => 'Oui. Je peux enregistrer ce probleme comme ticket de support Flexi Feet.',
+            'out_of_scope' => 'Je peux seulement aider avec les services Flexi Feet, les rendez-vous et le support client.',
+            'service' => 'Flexi Feet aide avec les chaussures diabetiques sur mesure, les semelles orthopediques, les semelles de decharge, les chaussettes et le scan 3D du pied.',
+        ],
+    ];
+    return $prefixes[$language][$intent] ?? '';
+}
+
+function flexifeet_support_apply_language(string $reply, string $language, string $intent): string
+{
+    if ($language === 'en') {
+        return $reply;
+    }
+    $prefix = flexifeet_support_localized_prefix($language, $intent);
+    if ($prefix === '') {
+        return $reply;
+    }
+    return normalize_text($prefix . ' ' . $reply, 1000);
+}
+
+function flexifeet_support_is_greeting(string $message): bool
+{
+    $text = trim(mb_strtolower($message, 'UTF-8'));
+    return preg_match('/^(hi|hello|hey|hiya|good morning|good afternoon|good evening|salam|vanakkam|வணக்கம்|你好|您好|नमस्ते|مرحبا|hola|bonjour)[!. ]*$/u', $text) === 1;
+}
+
+function flexifeet_support_response_id(string $message, string $intent): string
+{
+    return 'FFS-' . substr(hash('sha256', $intent . '|' . $message . '|' . microtime(true) . '|' . random_int(1000, 9999)), 0, 18);
+}
+
+function flexifeet_support_reply(string $message): array
+{
+    $language = flexifeet_support_detect_language($message);
+    $text = mb_strtolower($message, 'UTF-8');
+    if (flexifeet_support_is_greeting($message)) {
+        $matches = flexifeet_support_search('Flexi Feet services booking support diabetic shoes orthopaedic insoles 3D foot scan', 3);
+        $reply = 'Hi, I am the Flexi Feet support agent. I can help with diabetic shoes, orthopaedic insoles, offload insoles, 3D foot scanning, appointment booking, payment basics, or creating a support ticket. Tell me what you need, or tap Book Fitting or Create Ticket.';
+        flexifeet_support_store_ttt_memory($message, $matches, 'greeting', $language);
+        return [
+            'model' => 'FlexiFeetSupport',
+            'intent' => 'greeting',
+            'language' => $language,
+            'response_id' => flexifeet_support_response_id($message, 'greeting'),
+            'reply' => flexifeet_support_apply_language($reply, $language, 'service'),
+            'learned_terms' => flexifeet_support_learned_terms('Flexi Feet services booking support'),
+            'suggestions' => [
+                ['title' => 'Book a fitting', 'url' => '#booking'],
+                ['title' => 'Read foot care guides', 'url' => 'blog.php'],
+            ],
+            'sources' => array_map(fn($match) => [
+                'title' => $match['title'],
+                'url' => $match['url'],
+                'score' => round((float) $match['score'], 2),
+            ], $matches),
+        ];
+    }
+
     $bugWords = ['bug', 'issue', 'error', 'broken', 'not working', 'problem', 'complaint', 'wrong'];
     foreach ($bugWords as $word) {
         if (strpos($text, $word) !== false) {
+            $reply = 'I can create a support ticket for this issue. Please share your name, email or phone, and what happened.';
             return [
+                'model' => 'FlexiFeetSupport',
                 'intent' => 'ticket',
-                'reply' => 'I can create a support ticket for this issue. Please share your name, email or phone, and what happened.',
+                'language' => $language,
+                'response_id' => flexifeet_support_response_id($message, 'ticket'),
+                'reply' => flexifeet_support_apply_language($reply, $language, 'ticket'),
             ];
         }
     }
-    if (preg_match('/book|appointment|visit|fitting|consultation|schedule/', $text)) {
+
+    if (preg_match('/book|appointment|visit|fitting|consultation|schedule|slot|available|temujanji|预约|சந்திப்பு|अपॉइंटमेंट|موعد|cita|rendez/u', $text)) {
+        $reply = 'I can help request a Flexi Feet appointment step by step. First, what is the booking for: Foot Assessment, Custom Shoes / Footwear Fitting, Customised Insole Assessment, Pressure Sensor Scan, or Follow-up?';
         return [
+            'model' => 'FlexiFeetSupport',
             'intent' => 'booking',
-            'reply' => 'I can help book an appointment. Please provide your name, phone, email, preferred date, preferred time, and visit type.',
+            'language' => $language,
+            'response_id' => flexifeet_support_response_id($message, 'booking'),
+            'reply' => flexifeet_support_apply_language($reply, $language, 'booking'),
         ];
     }
-    $serviceWords = ['service', 'shoe', 'diabetic', 'insole', 'sock', 'scan', 'flat', 'ulcer', 'charcot', 'bunion', 'amputation', 'foot', 'orthopaedic', 'orthotic'];
-    foreach ($serviceWords as $word) {
-        if (strpos($text, $word) !== false) {
-            $suggestions = support_service_suggestions($message);
-            return [
-                'intent' => 'service',
-                'reply' => 'Flexi Feet helps with custom diabetic shoes, custom offload insoles, flat feet insoles, diabetic socks, and 3D foot assessment. I can only answer Flexi Feet service questions or help with bookings and support tickets.',
-                'suggestions' => $suggestions,
-            ];
+
+    $scopeTokens = flexifeet_support_scope_tokens_for_language($language);
+    $inScope = false;
+    foreach ($scopeTokens as $token) {
+        if (strpos($text, $token) !== false) {
+            $inScope = true;
+            break;
         }
     }
+    if (!$inScope) {
+        $reply = 'I can only help with Flexi Feet services, appointment booking, or support tickets. For other topics, please contact the team directly.';
+        return [
+            'model' => 'FlexiFeetSupport',
+            'intent' => 'out_of_scope',
+            'language' => $language,
+            'response_id' => flexifeet_support_response_id($message, 'out_of_scope'),
+            'reply' => flexifeet_support_apply_language($reply, $language, 'out_of_scope'),
+        ];
+    }
+
+    $matches = flexifeet_support_search($message, 3);
+    $learnedTerms = flexifeet_support_learned_terms($message);
+    $suggestions = support_service_suggestions($message);
+    $primary = $matches[0] ?? null;
+    $reply = 'Flexi Feet helps with custom diabetic shoes, orthopaedic footwear, offload insoles, flat feet insoles, diabetic and compression socks, and 3D foot assessment in Sentul, Kuala Lumpur.';
+    $directFacts = flexifeet_support_direct_facts($message);
+    if (!empty($directFacts)) {
+        $reply .= ' ' . implode(' ', array_slice($directFacts, 0, 3));
+    }
+    if ($primary && empty($directFacts)) {
+        $snippets = [];
+        foreach (array_slice($matches, 0, 3) as $match) {
+            $snippet = flexifeet_support_public_snippet((string) ($match['text'] ?? ''), (string) ($match['dataset'] ?? ''), 220);
+            if ($snippet !== '' && !in_array($snippet, $snippets, true)) {
+                $snippets[] = $snippet;
+            }
+        }
+        if (!empty($snippets)) {
+            $newSnippets = array_values(array_filter($snippets, function ($snippet) use ($directFacts) {
+                foreach ($directFacts as $fact) {
+                    similar_text(mb_strtolower($snippet), mb_strtolower($fact), $percent);
+                    if ($percent > 62) {
+                        return false;
+                    }
+                }
+                return true;
+            }));
+            if (!empty($newSnippets)) {
+                $reply .= ' Based on Flexi Feet content: ' . implode(' Also: ', array_slice($newSnippets, 0, 2));
+            }
+        }
+    }
+    $reply .= ' I can answer Flexi Feet service questions, help request a booking, or create a support ticket. For urgent medical concerns, please contact a qualified healthcare professional.';
+    flexifeet_support_store_ttt_memory($message, array_values(array_filter($matches, fn($match) => isset($match['dataset']))), 'service', $language);
+
     return [
-        'intent' => 'out_of_scope',
-        'reply' => 'I can only help with Flexi Feet services, appointment booking, or support tickets. For other topics, please contact the team directly.',
+        'model' => 'FlexiFeetSupport',
+        'intent' => 'service',
+        'language' => $language,
+        'response_id' => flexifeet_support_response_id($message, 'service'),
+        'reply' => normalize_text(flexifeet_support_apply_language($reply, $language, 'service'), 1000),
+        'learned_terms' => $learnedTerms,
+        'suggestions' => $suggestions,
+        'sources' => array_map(fn($match) => [
+            'title' => $match['title'],
+            'url' => $match['url'],
+            'score' => round((float) $match['score'], 2),
+        ], $matches),
     ];
+}
+
+function support_bot_reply(string $message): array
+{
+    return flexifeet_support_reply($message);
 }
 
 function read_blog_posts(bool $publishedOnly = false): array
@@ -324,7 +1675,10 @@ function save_blog_post(array $payload, ?string $id = null): array
     $now = date('Y-m-d H:i:s');
     $statusValue = $payload['status'] ?? 'Draft';
     $status = in_array($statusValue, ['Draft', 'Published'], true) ? $statusValue : 'Draft';
-    $slugSource = $payload['slug'] ?? ($payload['title'] ?? 'post');
+    $slugSource = trim((string) ($payload['slug'] ?? ''));
+    if ($slugSource === '') {
+        $slugSource = (string) ($payload['title'] ?? 'post');
+    }
     $post = [
         'id' => $id ?: 'POST-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
         'title' => normalize_text($payload['title'] ?? '', 180),
@@ -388,7 +1742,7 @@ function sanitize_external_url(string $url): string
 function is_instagram_url(string $url): bool
 {
     $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-    return $host === 'instagram.com' || $host === 'www.instagram.com';
+    return $host === 'instagram.com' || preg_match('/(^|\.)instagram\.com$/', $host) === 1;
 }
 
 function is_social_reel_url(string $url): bool
@@ -398,6 +1752,95 @@ function is_social_reel_url(string $url): bool
     }
     $host = strtolower((string) parse_url($url, PHP_URL_HOST));
     return in_array($host, ['youtube.com', 'www.youtube.com', 'youtu.be'], true);
+}
+
+function instagram_content_url(string $url): string
+{
+    if (!is_instagram_url($url)) {
+        return '';
+    }
+
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    if ($host === 'l.instagram.com') {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $redirectUrl = sanitize_external_url((string) ($query['u'] ?? ''));
+        if ($redirectUrl !== '' && is_instagram_url($redirectUrl)) {
+            return $redirectUrl;
+        }
+    }
+
+    return $url;
+}
+
+function instagram_shortcode_from_url(string $url): array
+{
+    $url = instagram_content_url($url);
+    $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+    if (preg_match('/^(reel|p|tv)\/([A-Za-z0-9_-]+)/', $path, $matches)) {
+        return ['type' => $matches[1], 'code' => $matches[2]];
+    }
+    return ['type' => '', 'code' => ''];
+}
+
+function canonical_instagram_url(string $url): string
+{
+    $shortcode = instagram_shortcode_from_url($url);
+    if ($shortcode['type'] !== '' && $shortcode['code'] !== '') {
+        return 'https://www.instagram.com/' . $shortcode['type'] . '/' . $shortcode['code'] . '/';
+    }
+    return instagram_content_url($url);
+}
+
+function canonical_reel_url(string $url): string
+{
+    $url = sanitize_external_url($url);
+    if ($url === '') {
+        return '';
+    }
+    if (is_instagram_url($url)) {
+        return canonical_instagram_url($url);
+    }
+    return $url;
+}
+
+function youtube_video_id_from_url(string $url): string
+{
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+    if ($host === 'youtu.be') {
+        return preg_match('/^[A-Za-z0-9_-]{6,}$/', $path) ? $path : '';
+    }
+    if (preg_match('/^(shorts|embed)\/([A-Za-z0-9_-]{6,})/', $path, $matches)) {
+        return $matches[2];
+    }
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+    $id = (string) ($query['v'] ?? '');
+    return preg_match('/^[A-Za-z0-9_-]{6,}$/', $id) ? $id : '';
+}
+
+function reel_thumbnail_from_url(string $url): string
+{
+    if (is_instagram_url($url)) {
+        $shortcode = instagram_shortcode_from_url($url);
+        if ($shortcode['type'] !== '' && $shortcode['code'] !== '') {
+            return 'https://www.instagram.com/' . $shortcode['type'] . '/' . $shortcode['code'] . '/media/?size=l';
+        }
+        return '';
+    }
+
+    $youtubeId = youtube_video_id_from_url($url);
+    return $youtubeId !== '' ? 'https://i.ytimg.com/vi/' . $youtubeId . '/hqdefault.jpg' : '';
+}
+
+function reel_title_from_url(string $url, int $position): string
+{
+    if (is_instagram_url($url)) {
+        $shortcode = instagram_shortcode_from_url($url);
+        return $shortcode['code'] !== '' ? 'Instagram Reel ' . $shortcode['code'] : 'Instagram Reel ' . $position;
+    }
+
+    $youtubeId = youtube_video_id_from_url($url);
+    return $youtubeId !== '' ? 'YouTube Short ' . $youtubeId : 'Flexi Feet Reel ' . $position;
 }
 
 function read_reels(bool $activeOnly = false): array
@@ -430,13 +1873,26 @@ function save_reel(array $payload, ?string $id = null): array
     $reels = read_reels(false);
     $now = date('Y-m-d H:i:s');
     $status = ($payload['status'] ?? 'Active') === 'Inactive' ? 'Inactive' : 'Active';
+    $url = canonical_reel_url((string) ($payload['url'] ?? ''));
+    $sortOrder = (int) ($payload['sort_order'] ?? 0);
+    if ($sortOrder < 1) {
+        $sortOrder = count($reels) + 1;
+    }
+    $title = normalize_text($payload['title'] ?? '', 140);
+    if ($title === '') {
+        $title = reel_title_from_url($url, $sortOrder);
+    }
+    $thumbnail = normalize_text($payload['thumbnail'] ?? '', 300);
+    if ($thumbnail === '') {
+        $thumbnail = reel_thumbnail_from_url($url);
+    }
     $reel = [
         'id' => $id ?: 'REEL-' . date('YmdHis') . '-' . bin2hex(random_bytes(2)),
-        'title' => normalize_text($payload['title'] ?? '', 140),
-        'url' => sanitize_external_url((string) ($payload['url'] ?? '')),
-        'thumbnail' => normalize_text($payload['thumbnail'] ?? '', 300),
+        'title' => $title,
+        'url' => $url,
+        'thumbnail' => $thumbnail,
         'status' => $status,
-        'sort_order' => (int) ($payload['sort_order'] ?? (count($reels) + 1)),
+        'sort_order' => $sortOrder,
         'updated_at' => $now,
     ];
 
@@ -554,6 +2010,87 @@ function list_media_files(): array
     return $files;
 }
 
+function markdown_href(string $url): string
+{
+    $url = trim($url);
+    if ($url === '') {
+        return '';
+    }
+    if (preg_match('/^https?:\/\//i', $url)) {
+        return sanitize_external_url($url);
+    }
+    if (preg_match('/^(mailto:|tel:|#|\/|[A-Za-z0-9._~\-\/?#=&%+]+$)/', $url) === 1 && stripos($url, 'javascript:') !== 0) {
+        return $url;
+    }
+    return '';
+}
+
+function render_markdown_inline(string $text): string
+{
+    $codes = [];
+    $text = preg_replace_callback('/`([^`]+)`/', function ($matches) use (&$codes) {
+        $key = "\x1A" . count($codes) . "\x1A";
+        $codes[$key] = '<code>' . e($matches[1]) . '</code>';
+        return $key;
+    }, $text) ?? $text;
+
+    $text = e($text);
+    $text = preg_replace_callback('/\[(.+?)\]\(([^)\s]+)\)/', function ($matches) {
+        $href = markdown_href(html_entity_decode($matches[2], ENT_QUOTES, 'UTF-8'));
+        if ($href === '') {
+            return $matches[1];
+        }
+        return '<a href="' . e($href) . '" target="_blank" rel="noopener">' . $matches[1] . '</a>';
+    }, $text) ?? $text;
+    $text = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $text) ?? $text;
+    $text = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $text) ?? $text;
+
+    return strtr($text, $codes);
+}
+
+function render_markdown_block(array $lines): string
+{
+    $lines = array_values(array_filter(array_map('trim', $lines), fn($line) => $line !== ''));
+    if (empty($lines)) {
+        return '';
+    }
+
+    if (count($lines) === 1) {
+        $line = $lines[0];
+        if (preg_match('/^\[image:([^\]]+)\]$/', $line, $matches)) {
+            $src = normalize_text($matches[1], 300);
+            return '<figure class="blog-inline-image"><img src="' . e($src) . '" alt=""></figure>';
+        }
+        if (preg_match('/^!\[([^\]]*)\]\(([^)]+)\)$/', $line, $matches)) {
+            $src = markdown_href($matches[2]);
+            if ($src !== '') {
+                return '<figure class="blog-inline-image"><img src="' . e($src) . '" alt="' . e($matches[1]) . '"></figure>';
+            }
+        }
+        if (preg_match('/^(#{1,6})\s+(.+)$/', $line, $matches)) {
+            $level = strlen($matches[1]);
+            return '<h' . $level . '>' . render_markdown_inline($matches[2]) . '</h' . $level . '>';
+        }
+    }
+
+    if (count(array_filter($lines, fn($line) => preg_match('/^[-*]\s+.+$/', $line))) === count($lines)) {
+        $items = array_map(fn($line) => '<li>' . render_markdown_inline(preg_replace('/^[-*]\s+/', '', $line) ?? $line) . '</li>', $lines);
+        return '<ul>' . implode('', $items) . '</ul>';
+    }
+
+    if (count(array_filter($lines, fn($line) => preg_match('/^\d+\.\s+.+$/', $line))) === count($lines)) {
+        $items = array_map(fn($line) => '<li>' . render_markdown_inline(preg_replace('/^\d+\.\s+/', '', $line) ?? $line) . '</li>', $lines);
+        return '<ol>' . implode('', $items) . '</ol>';
+    }
+
+    if (count(array_filter($lines, fn($line) => preg_match('/^>\s?/', $line))) === count($lines)) {
+        $quote = implode("\n", array_map(fn($line) => preg_replace('/^>\s?/', '', $line) ?? $line, $lines));
+        return '<blockquote><p>' . nl2br(render_markdown_inline($quote)) . '</p></blockquote>';
+    }
+
+    return '<p>' . nl2br(render_markdown_inline(implode("\n", $lines))) . '</p>';
+}
+
 function render_post_content(string $content): string
 {
     $paragraphs = preg_split("/\R{2,}/", trim($content)) ?: [];
@@ -561,12 +2098,7 @@ function render_post_content(string $content): string
     foreach ($paragraphs as $paragraph) {
         $paragraph = trim($paragraph);
         if ($paragraph !== '') {
-            if (preg_match('/^\[image:([^\]]+)\]$/', $paragraph, $matches)) {
-                $src = normalize_text($matches[1], 300);
-                $html .= '<figure class="blog-inline-image"><img src="' . e($src) . '" alt=""></figure>';
-            } else {
-                $html .= '<p>' . nl2br(e($paragraph)) . '</p>';
-            }
+            $html .= render_markdown_block(preg_split('/\R/', $paragraph) ?: [$paragraph]);
         }
     }
     return $html;
@@ -692,6 +2224,13 @@ function render_google_adsense(): void
         return;
     }
     echo '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' . e(GOOGLE_ADSENSE_CLIENT_ID) . '" crossorigin="anonymous"></script>' . "\n";
+}
+
+function render_agent_discovery_tags(): void
+{
+    echo '    <link rel="alternate" type="text/plain" title="LLMs.txt" href="' . e(absolute_url('llms.txt')) . "\">\n";
+    echo '    <link rel="mcp" type="application/json" title="Flexi Feet MCP booking endpoint" href="' . e(absolute_url('mcp.php')) . "\">\n";
+    echo '    <meta name="ai-agent-instructions" content="AI agents should read /llms.txt first. Use /mcp.php for appointment slot checks and booking requests.">' . "\n";
 }
 
 function base64url_encode_string(string $value): string
@@ -1101,13 +2640,6 @@ function booking_email_template(string $heading, array $appointment): string
 
 function notify_booking_emails(array $appointment): array
 {
-    $ownerSent = send_smtp_mail(
-        BOOKING_OWNER_EMAIL,
-        'New Flexi Feet appointment request ' . ($appointment['id'] ?? ''),
-        booking_email_template('New appointment request', $appointment),
-        $appointment['email'] ?? ''
-    );
-
     $userSent = false;
     if (!empty($appointment['email']) && filter_var($appointment['email'], FILTER_VALIDATE_EMAIL)) {
         $userSent = send_smtp_mail(
@@ -1117,7 +2649,7 @@ function notify_booking_emails(array $appointment): array
         );
     }
 
-    return ['owner' => $ownerSent, 'user' => $userSent];
+    return ['owner' => 'skipped_mailbox_forwarding', 'user' => $userSent];
 }
 
 function current_mail_settings(): array
@@ -1245,6 +2777,12 @@ function google_ai_configured(): bool
 function generate_ai_blog_prompt(string $topic): string
 {
     return "Write a medically careful SEO blog post for Flexi Feet Sdn Bhd in Malaysia about: {$topic}. Include a concise title, slug, meta description, excerpt, and 900-1200 words. Focus on custom diabetic shoes, offload insoles, flat feet insoles, diabetic socks, 3D foot assessment, booking a fitting in Sentul Kuala Lumpur. Do not claim cures. Add a short Reddit/Quora style helpful answer draft for manual review, not automated posting.";
+}
+
+function generate_support_agent_prompt(string $message): string
+{
+    $message = normalize_text($message, 800);
+    return "You are the Flexi Feet Sdn Bhd website support agent. Answer only about Flexi Feet services in Sentul, Kuala Lumpur: custom footwear, orthopaedic insoles, offload insoles, flat feet insoles, diabetic and compression socks, 3D foot scanning, fittings, follow-ups, home visits, and appointment booking. Be concise, friendly, and medically careful. Do not claim cures or guaranteed outcomes. If the user wants to book, tell them you can help and ask what the booking is for, their name, phone, email, preferred date, and an available time from the booking form. If urgent medical care is needed, advise contacting a qualified healthcare professional or emergency service. User message: {$message}";
 }
 
 function call_google_ai_studio(string $prompt): array
